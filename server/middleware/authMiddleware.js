@@ -1,14 +1,13 @@
 import jwt from "jsonwebtoken";
-import redis from "../config/redis.js";
-import dotenv from "dotenv";
-import e from "express";
-dotenv.config();
+import { getRedis } from "../config/redis.js";
+
 
 const ACCESS_EXP = "5m"; // short-lived
 const REFRESH_EXP = 7 * 24 * 60 * 60; // 7 days in seconds
 
 // ===================== Middleware: Protect routes =====================
 export async function protect(req, res, next) {
+  const redis = getRedis();
   try {
     const authHeader = req.headers.authorization;    
     if (!authHeader?.startsWith("Bearer "))
@@ -37,6 +36,7 @@ export async function protect(req, res, next) {
 
 // ===================== Refresh token handler =====================
 export async function refresh(req, res) {
+  const redis = getRedis();
   try {
     const refreshToken = req.cookies.refresh_token;
     if (!refreshToken)

@@ -1,0 +1,42 @@
+services:
+  mongo:
+    image: mongo:7
+    container_name: cse471_mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+
+  redis:
+    image: redis:7-alpine
+    container_name: cse471_redis
+    ports:
+      - "6379:6379"
+
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: cse471_server
+    ports:
+      - "5000:5000"
+    env_file:
+      - ./server/.env.docker
+    depends_on:
+      - mongo
+      - redis
+
+  frontend:
+    build:
+      context: ./frontend     # must match your real folder name
+      dockerfile: Dockerfile
+    container_name: cse471_frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:5000/api
+    depends_on:
+      - server
+
+volumes:
+  mongo_data:

@@ -2,9 +2,8 @@ import User from "../models/User.js";
 import argon2 from "argon2";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
-import redis from "../config/redis.js";
-import dotenv from "dotenv";
-dotenv.config();
+import { getRedis } from "../config/redis.js";
+
 
 const ACCESS_EXP = "3m"; // short-lived access token
 const REFRESH_EXP = 7 * 24 * 60 * 60; // 7 days in seconds
@@ -34,6 +33,7 @@ export async function register(req, res) {
 
 /* ========== LOGIN ========== */
 export async function login(req, res) {
+  const redis = getRedis();
   try {
     const { email, password } = req.body;
     const user = await User.findOne({ email });
@@ -81,6 +81,7 @@ export async function login(req, res) {
 
 /* ========== LOGOUT ========== */
 export async function logout(req, res) {
+  const redis = getRedis();
   try {
     const refreshToken = req.cookies.refresh_token;
 
