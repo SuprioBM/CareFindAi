@@ -3,7 +3,13 @@ import argon2 from "argon2";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import { getRedis } from "../config/redis.js";
-
+import { recordFail, resetFail } from "../middleware/lockout.js";
+import { generateOtp, hashOtp } from "../utils/emailOtp.js";
+import {
+  sendVerificationEmail,
+  sendPasswordResetEmail,
+} from "../middleware/sendEmail.js";
+import { issueSession, revokeAllSessionsForUser } from "../utils/manageSessions.js";
 
 const ACCESS_EXP = "3m"; // short-lived access token
 const REFRESH_EXP = 7 * 24 * 60 * 60; // 7 days in seconds
@@ -24,7 +30,24 @@ export async function register(req, res) {
       password: hashedPassword,
     });
 
-    res.status(201).json({ message: "User registered", userId: user._id });
+    const OTP_MIN = 10;
+    const code = generateOtp();
+
+    user.emailVerified = false;
+    user.emailVerifyCodeHash = hashOtp(code);
+    user.emailVerifyCodeExp = new Date(Date.now() + OTP_MIN * 60 * 1000);
+    user.emailVerifyCodeAttempts = 0;
+    user.emailVerifyLastSentAt = new Date();
+    await user.save();
+
+    
+    await sendVerificationEmail({ to: user.email, code });
+
+    return res.status(201).json({
+      message: "Registered. Check your email for the verification code.",
+      next: "VERIFY_EMAIL",
+      email: user.email,
+    });
   } catch (err) {
     console.error("Register error:", err);
     res.status(500).json({ message: "Server error" });
@@ -33,52 +56,56 @@ export async function register(req, res) {
 
 /* ========== LOGIN ========== */
 export async function login(req, res) {
-  const redis = getRedis();
   try {
     const { email, password } = req.body;
-    const user = await User.findOne({ email });
+
+    // IMPORTANT: email is stored lowercase/trim in schema, so normalize here too
+    const normalizedEmail = email.toLowerCase().trim();
+
+    const user = await User.findOne({ email: normalizedEmail });
     if (!user) return res.status(401).json({ message: "Invalid credentials" });
 
+    // Google-only account protection
+    if (!user.password) {
+      return res
+        .status(400)
+        .json({ message: "Use Google login for this account." });
+    }
+
+    // Block login if not verified
+    if (!user.emailVerified) {
+      return res.status(403).json({
+        code: "EMAIL_NOT_VERIFIED",
+        message: "Please verify your email first",
+        email: user.email,
+      });
+    }
+
     const isValid = await argon2.verify(user.password, password);
-    if (!isValid)
-      return res.status(401).json({ message: "Invalid credentials" });
+    if (!isValid) {
+      const lockedNow = await recordFail(normalizedEmail);
+      return res.status(401).json({
+        message: lockedNow
+          ? "Too many failed attempts. Account locked temporarily."
+          : "Invalid credentials",
+      });
+    }
 
-    // Generate refresh token (long-lived)
-    const refreshToken = crypto.randomBytes(32).toString("hex");
+    // success
+    await resetFail(normalizedEmail);
 
-    // Store refresh token in Redis with user info
-    await redis.set(
-      `sess:${refreshToken}`,
-      JSON.stringify({ userID: user._id, name: user.name, email: user.email }),
-      { EX: REFRESH_EXP },
-    );
+    // ✅ Create refresh session in Redis + set cookie + create access token
+    const session = await issueSession(req,res, user);
 
-    // Generate short-lived access token (JWT)
-    const accessToken = jwt.sign(
-      { id: user._id, email: user.email, name: user.name },
-      process.env.JWT_SECRET,
-      { expiresIn: ACCESS_EXP },
-    );
-   
-     
-
-    // Send refresh token as HttpOnly cookie
-    res.cookie("refresh_token", refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: REFRESH_EXP * 1000,
-    }).json({
+    return res.json({
       message: "Login successful",
-      accessToken,
-      user: { id: user._id, name: user.name, email: user.email },
+      ...session, // { accessToken, user }
     });
   } catch (err) {
     console.error("Login error:", err);
-    res.status(500).json({ message: "Server error" });
+    return res.status(500).json({ message: "Server error" });
   }
 }
-
 /* ========== LOGOUT ========== */
 export async function logout(req, res) {
   const redis = getRedis();
@@ -89,7 +116,15 @@ export async function logout(req, res) {
       return res.status(200).json({ message: "Already logged out" });
 
     // Delete refresh token from Redis
-    await redis.del(`sess:${refreshToken}`);
+    const sessionStr = await redis.get(`sess:${refreshToken}`);
+    if (sessionStr) {
+      const { userID, sid } = JSON.parse(sessionStr);
+
+      // remove session mappings
+      await redis.del(`sess:${refreshToken}`);
+      await redis.del(`sid:${sid}`);
+      await redis.sRem(`userSessions:${userID}`, sid);
+    }
 
     // Clear refresh token cookie
     res
@@ -97,10 +132,120 @@ export async function logout(req, res) {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
         sameSite: "lax",
+        path: "/",
       })
       .json({ message: "Logged out successfully" });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Logout failed" });
+  }
+}
+
+// ===================== Forgot & Reset Password =====================
+export async function forgotPassword(req, res) {
+  try {
+    const { email } = req.body;
+    const e = email.toLowerCase().trim();
+
+    const user = await User.findOne({ email: e });
+
+    // Always return the same message (don’t reveal existence)
+    const genericMsg = {
+      message: "If that email exists, we sent a reset code.",
+    };
+
+    if (!user) return res.json(genericMsg);
+
+    // Cooldown: 60s between sends
+    const last = user.passwordResetLastSentAt?.getTime() || 0;
+    if (Date.now() - last < 60 * 1000) {
+      return res.status(429).json({
+        message: "Please wait a minute before requesting another code.",
+      });
+    }
+
+    const OTP_MIN = Number(process.env.OTP_EXP_MIN || 10);
+    const code = generateOtp();
+
+    user.passwordResetCodeHash = hashOtp(code);
+    user.passwordResetCodeExp = new Date(Date.now() + OTP_MIN * 60 * 1000);
+    user.passwordResetAttempts = 0;
+    user.passwordResetLastSentAt = new Date();
+    await user.save();
+
+    await sendPasswordResetEmail({ to: user.email, code });
+
+    return res.json(genericMsg);
+  } catch (err) {
+    console.error("forgotPassword error:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+}
+
+// This is called when user submits the code and new password
+
+export async function resetPassword(req, res) {
+  try {
+    const { email, code, password } = req.body;
+    const e = email.toLowerCase().trim();
+
+    const user = await User.findOne({ email: e });
+    if (!user)
+      return res.status(400).json({ message: "Invalid code or email" });
+
+    if (!user.passwordResetCodeHash || !user.passwordResetCodeExp) {
+      return res
+        .status(400)
+        .json({ message: "No reset code found. Please request again." });
+    }
+
+    if (user.passwordResetCodeExp.getTime() < Date.now()) {
+      return res
+        .status(400)
+        .json({ message: "Code expired. Please request again." });
+    }
+
+    if ((user.passwordResetAttempts || 0) >= 5) {
+      return res
+        .status(429)
+        .json({ message: "Too many attempts. Please request a new code." });
+    }
+
+    const ok = hashOtp(code) === user.passwordResetCodeHash;
+    if (!ok) {
+      user.passwordResetAttempts = (user.passwordResetAttempts || 0) + 1;
+      await user.save();
+      return res.status(400).json({ message: "Invalid code or email" });
+    }
+
+    // ✅ Update password (argon2)
+    const hashedPassword = await argon2.hash(password);
+    user.password = hashedPassword;
+
+    // Clear reset fields
+    user.passwordResetCodeHash = null;
+    user.passwordResetCodeExp = null;
+    user.passwordResetAttempts = 0;
+    user.passwordResetLastSentAt = null;
+
+    await user.save();
+
+    // ✅ Security: log out everywhere (revoke refresh sessions)
+    await revokeAllSessionsForUser(user._id.toString());
+
+    // Clear cookie too (if they had one)
+    res.clearCookie("refresh_token", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+    });
+
+    return res.json({
+      message: "Password reset successful. Please login again.",
+    });
+  } catch (err) {
+    console.error("resetPassword error:", err);
+    return res.status(500).json({ message: "Server error" });
   }
 }
