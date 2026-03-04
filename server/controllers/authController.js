@@ -1,7 +1,5 @@
 import User from "../models/User.js";
 import argon2 from "argon2";
-import jwt from "jsonwebtoken";
-import crypto from "crypto";
 import { getRedis } from "../config/redis.js";
 import { recordFail, resetFail } from "../middleware/lockout.js";
 import { generateOtp, hashOtp } from "../utils/emailOtp.js";

@@ -3,6 +3,8 @@ import { getRedis } from "../config/redis.js";
 import { generateOtp, hashOtp } from "../utils/emailOtp.js";
 import { sendVerificationEmail } from "./sendEmail.js";
 import crypto from "crypto";
+import User from "../models/User.js";
+
 
 const ACCESS_EXP = "5m"; // short-lived
 const REFRESH_EXP = 7 * 24 * 60 * 60; // 7 days in seconds

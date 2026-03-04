@@ -1,7 +1,6 @@
 import { jest } from "@jest/globals";
 import request from "supertest";
 import { makeMockRedis } from "./__mocks__/redisClient.js";
-import crypto from "crypto";
 
 import {
   connectTestMongo,
@@ -40,14 +39,18 @@ let lastResetCode = null;
 jest.unstable_mockModule("../middleware/sendEmail.js", () => ({
   sendVerificationEmail: async ({ to, code }) => {
     lastVerifyCode = code;
-    return;
   },
-}));
-
-jest.unstable_mockModule("../middleware/sendEmail.js", () => ({
   sendPasswordResetEmail: async ({ to, code }) => {
     lastResetCode = code;
-    return;
+  },
+  // optional: in case any file imports default
+  default: {
+    sendVerificationEmail: async ({ to, code }) => {
+      lastVerifyCode = code;
+    },
+    sendPasswordResetEmail: async ({ to, code }) => {
+      lastResetCode = code;
+    },
   },
 }));
 
@@ -349,4 +352,19 @@ describe("Auth API (updated)", () => {
 
     expect(revokeAllRes.statusCode).toBe(200);
   });
+});
+
+test("verify-email fails with wrong OTP", async () => {
+  await registerUser({
+    name: "Wrong",
+    email: "wrong@test.com",
+    password: "123456",
+  });
+
+  const res = await verifyEmail({
+    email: "wrong@test.com",
+    code: "000000",
+  });
+
+  expect(res.statusCode).toBe(400);
 });
