@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import React,{ useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -14,9 +14,10 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { apiFetch } from "@/lib/api";
-import router from "next/router";
+import { useRouter } from "next/navigation";
 
 export default function RegisterForm() {
+  const router = useRouter();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

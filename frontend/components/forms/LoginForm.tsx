@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
+import { useRouter } from "next/navigation";
+
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -13,46 +15,56 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+
 import { apiFetch } from "@/lib/api";
 import { useAuth } from "@/authContext/authContext";
-import { useRouter } from "next/navigation";
 
 export default function LoginForm() {
   const { login } = useAuth();
   const router = useRouter();
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
- const handleSubmit = async (e: React.FormEvent) => {
-   e.preventDefault();
-   setLoading(true);
-   setError("");
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (loading) return;
 
-   try {
-     const res = await apiFetch("/auth/login", {
-       method: "POST",
-       body: JSON.stringify({ email, password }),
-     });
+    setLoading(true);
+    setError("");
 
-     const data = await res.json();
-     console.log(data);
+    try {
+      const res = await apiFetch("/auth/login", {
+        method: "POST",
+        body: JSON.stringify({ email, password }),
+      });
 
-     if (!res.ok) {
-       setError(data.message || "Login failed"); // your backend sends 'message', not 'error'
-     } else {
-       // ✅ Pass both user and accessToken
-       login(data.user,data.accessToken );
+      const data = await res.json().catch(() => ({}));
 
-       router.replace("/");
-     }
-   } catch (err: any) {
-     setError(err.message || "Something went wrong");
-   } finally {
-     setLoading(false);
-   }
- };
+      if (!res.ok) {
+        // ✅ If backend blocks unverified users, send them to verify page
+        if (data?.code === "EMAIL_NOT_VERIFIED") {
+          const targetEmail = data.email || email;
+          router.push(`/verify-email?email=${encodeURIComponent(targetEmail)}`);
+          return;
+        }
+
+        setError(data?.message || "Login failed");
+        return;
+      }
+
+      // ✅ Success: store user + access token in context/memory
+      login(data.user, data.accessToken);
+
+      router.replace("/");
+    } catch (err: any) {
+      setError(err?.message || "Something went wrong");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-white">
@@ -60,18 +72,17 @@ export default function LoginForm() {
         <CardHeader>
           <CardTitle>Login to your account</CardTitle>
           <CardDescription>Enter your email below to login</CardDescription>
+
           <CardAction>
-            <Button
-              variant="link"
-              onClick={() => (window.location.href = "/register")}
-            >
+            <Button variant="link" onClick={() => router.push("/register")}>
               Sign Up
             </Button>
           </CardAction>
         </CardHeader>
 
         <CardContent>
-          <form autoComplete="off">
+          {/* ✅ real submit (Enter key works) */}
+          <form autoComplete="off" onSubmit={handleSubmit}>
             <div className="flex flex-col gap-6">
               <div className="grid gap-2">
                 <Label htmlFor="email">Email</Label>
@@ -89,13 +100,17 @@ export default function LoginForm() {
               <div className="grid gap-2">
                 <div className="flex items-center">
                   <Label htmlFor="password">Password</Label>
-                  <a
-                    href="#"
-                    className="ml-auto inline-block text-sm underline-offset-4 hover:underline"
+
+                  {/* Optional: wire this later */}
+                  <button
+                    type="button"
+                    className="ml-auto inline-block text-sm underline-offset-4 hover:underline text-white/80"
+                    onClick={() => router.push("/forgot-password")}
                   >
                     Forgot your password?
-                  </a>
+                  </button>
                 </div>
+
                 <Input
                   id="password"
                   type="password"
@@ -105,25 +120,32 @@ export default function LoginForm() {
                   onChange={(e) => setPassword(e.target.value)}
                 />
               </div>
-            </div>
 
-            {error && <p className="text-red-500 mt-2">{error}</p>}
+              {error && <p className="text-red-500 mt-2">{error}</p>}
+
+              <Button
+                type="submit"
+                className="w-full border bg-primary"
+                disabled={loading}
+              >
+                {loading ? "Logging in..." : "Login"}
+              </Button>
+
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                onClick={() =>
+                  router.push(`${process.env.NEXT_PUBLIC_API_URL}/auth/google`)
+                }
+              >
+                Login with Google
+              </Button>
+            </div>
           </form>
         </CardContent>
 
-        <CardFooter className="flex-col gap-2">
-          <Button
-            type="submit"
-            className="w-full border bg-primary"
-            onClick={handleSubmit}
-            disabled={loading}
-          >
-            {loading ? "Logging in..." : "Login"}
-          </Button>
-          <Button variant="outline" className="w-full">
-            Login with Google
-          </Button>
-        </CardFooter>
+        <CardFooter className="flex-col gap-2" />
       </Card>
     </div>
   );
