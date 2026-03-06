@@ -9,7 +9,6 @@ import { originGuard } from "../middleware/originGuard.js";
 import {
   googleStart,
   googleCallback,
-  oauthExchange,
 } from "../controllers/googleAuthController.js";
 
 import {
@@ -78,8 +77,6 @@ router.post(
 router.get("/google/start", arcjetProtect({ requested: 2 }), googleStart);
 router.get("/google/callback", arcjetProtect({ requested: 2 }), googleCallback);
 
-// Exchange one-time code for access token + user (frontend hits this)
-router.get("/oauth/exchange", arcjetProtect({ requested: 2 }), oauthExchange);
 
 
 

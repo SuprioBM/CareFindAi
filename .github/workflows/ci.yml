@@ -26,7 +26,6 @@ jobs:
       - name: Install deps
         run: npm ci
 
-      # Create a safe test env (since .env.test should NOT be committed)
       - name: Create .env.test
         run: |
           echo "JWT_SECRET=DUJ1234" > .env.test
@@ -60,3 +59,12 @@ jobs:
         run: npm run build
         env:
           NEXT_PUBLIC_API_URL: http://localhost:5000/api
+
+  docker-compose-build:
+    name: Docker Compose build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build all services
+        run: docker compose build

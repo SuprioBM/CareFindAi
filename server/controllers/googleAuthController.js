@@ -136,7 +136,7 @@ export async function googleCallback(req, res) {
     }
 
     // 5) Create YOUR session (redis refresh cookie + access jwt)
-    const session = await issueSession(res, user);
+    const session = await issueSession(req, res, user);
 
     // 6) Create one-time exchange code to send access token safely to frontend
     const exchangeCode = crypto.randomBytes(20).toString("hex");
@@ -146,29 +146,10 @@ export async function googleCallback(req, res) {
 
     // 7) Redirect to frontend callback
     const client = process.env.CLIENT_ORIGIN || "http://localhost:3000";
-    return res.redirect(`${client}/oauth/callback?code=${exchangeCode}`);
+    return res.redirect(`${client}`);
   } catch (err) {
     console.error("googleCallback error:", err);
     return res.status(500).json({ message: "Server error" });
   }
 }
 
-// Frontend calls this after redirect to get accessToken safely
-export async function oauthExchange(req, res) {
-  const redis = getRedis();
-
-  try {
-    const code = req.query.code?.toString();
-    if (!code) return res.status(400).json({ message: "Missing code" });
-
-    const data = await redis.get(`oauth:code:${code}`);
-    if (!data)
-      return res.status(400).json({ message: "Invalid or expired code" });
-
-    await redis.del(`oauth:code:${code}`);
-    return res.json(JSON.parse(data));
-  } catch (err) {
-    console.error("oauthExchange error:", err);
-    return res.status(500).json({ message: "Server error" });
-  }
-}

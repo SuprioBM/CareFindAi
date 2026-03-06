@@ -5,7 +5,7 @@ import { getRedis } from "../config/redis.js";
 const ACCESS_EXP = "5m";
 const REFRESH_EXP = 7 * 24 * 60 * 60; // seconds
 
-export async function issueSession(req,res, user) {
+export async function issueSession(req, res, user) {
   const redis = getRedis();
 
   const refreshToken = crypto.randomBytes(32).toString("hex");

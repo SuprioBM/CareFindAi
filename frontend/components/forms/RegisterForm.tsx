@@ -141,7 +141,13 @@ export default function RegisterForm() {
           >
             {loading ? "Registering..." : "Register"}
           </Button>
-          <Button variant="outline" className="w-full">
+          <Button
+            variant="outline"
+            className="w-full"
+            onClick={() => {
+              window.location.href = `${process.env.NEXT_PUBLIC_API_URL}/auth/google/start`;
+            }}
+          >
             Register with Google
           </Button>
         </CardFooter>
