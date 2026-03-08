@@ -4,7 +4,7 @@ import helmet from "helmet";
 import cookieParser from "cookie-parser";
 import pinoHttp from "pino-http";
 import createError from "http-errors";
-import routes from "./routes/routes";
+import apiRoutes from "./routes/apiRoutes.js";
 
 const app = express();
 
@@ -42,7 +42,7 @@ app.get("/api/test", (req, res) => {
   res.json({ message: "Hello from Express" });
 });
 
-app.use("/api/v1", routes);
+app.use("/api/v1", apiRoutes);
 
 
 /* -------------------- 404 ------------------------------- */

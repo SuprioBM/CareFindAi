@@ -38,7 +38,5 @@ const specializationSchema = new Schema(
   }
 );
 
-specializationSchema.index({ name: 1 }, { unique: true });
-specializationSchema.index({ slug: 1 }, { unique: true });
 
 export default model("Specialization", specializationSchema);

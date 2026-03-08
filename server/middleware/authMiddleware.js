@@ -3,7 +3,7 @@ import { getRedis } from "../config/redis.js";
 import { generateOtp, hashOtp } from "../utils/emailOtp.js";
 import { sendVerificationEmail } from "./sendEmail.js";
 import crypto from "crypto";
-import User from "../models/User.js";
+import User from "../models/User.model.js";
 
 
 const ACCESS_EXP = "5m"; // short-lived

@@ -1,4 +1,4 @@
-import User from "../models/User.js";
+import User from "../models/User.model.js";
 import argon2 from "argon2";
 import { getRedis } from "../config/redis.js";
 import { recordFail, resetFail } from "../middleware/lockout.js";

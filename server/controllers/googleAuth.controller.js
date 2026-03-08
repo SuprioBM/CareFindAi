@@ -1,5 +1,5 @@
 import crypto from "crypto";
-import User from "../models/User.js";
+import User from "../models/User.model.js";
 import { getRedis } from "../config/redis.js";
 import { googleClient, buildGoogleAuthUrl } from "../config/googleOAuth.js";
 import { issueSession } from "../utils/manageSessions.js";

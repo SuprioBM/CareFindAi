@@ -6,7 +6,7 @@ import symptomSearchRoutes from "./symptomSearch.routes.js";
 import bookmarkRoutes from "./bookmark.routes.js";
 import savedLocationRoutes from "./savedLocation.routes.js";
 import doctorJoinRequestRoutes from "./doctorJoinRequest.routes.js";
-import authRoutes from "./routes/auth.routes.js";
+import authRoutes from "./auth.routes.js";
 
 const router = express.Router();
 
