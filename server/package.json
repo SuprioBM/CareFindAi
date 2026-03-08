@@ -14,7 +14,9 @@
   "dependencies": {
     "@arcjet/inspect": "^1.1.0",
     "@arcjet/node": "^1.1.0",
+    "ai": "^6.0.116",
     "argon2": "^0.44.0",
+    "axios": "^1.13.6",
     "bcryptjs": "^3.0.3",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",

@@ -7,6 +7,7 @@ import bookmarkRoutes from "./bookmark.routes.js";
 import savedLocationRoutes from "./savedLocation.routes.js";
 import doctorJoinRequestRoutes from "./doctorJoinRequest.routes.js";
 import authRoutes from "./auth.routes.js";
+import aiRoutes from "./ai.routes.js";
 
 const router = express.Router();
 
@@ -17,5 +18,6 @@ router.use("/symptom-searches", symptomSearchRoutes);
 router.use("/bookmarks", bookmarkRoutes);
 router.use("/saved-locations", savedLocationRoutes);
 router.use("/doctor-join-requests", doctorJoinRequestRoutes);
+router.use("/ai", aiRoutes);
 
 export default router;
