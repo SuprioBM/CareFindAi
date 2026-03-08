@@ -4,8 +4,7 @@ import helmet from "helmet";
 import cookieParser from "cookie-parser";
 import pinoHttp from "pino-http";
 import createError from "http-errors";
-
-import authRoutes from "./routes/authRoutes.js";
+import routes from "./routes/routes";
 
 const app = express();
 
@@ -43,7 +42,8 @@ app.get("/api/test", (req, res) => {
   res.json({ message: "Hello from Express" });
 });
 
-app.use("/api/auth", authRoutes);
+app.use("/api/v1", routes);
+
 
 /* -------------------- 404 ------------------------------- */
 app.use((req, res, next) => next(createError(404, "Route not found")));

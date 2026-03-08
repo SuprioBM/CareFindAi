@@ -1,5 +1,5 @@
 import express from "express";
-import { register, login, logout,forgotPassword,resetPassword } from "../controllers/authController.js";
+import { register, login, logout,forgotPassword,resetPassword } from "../controllers/auth.controller.js";
 import { protect, refresh,verifyEmail,resendVerification } from "../middleware/authMiddleware.js";
 import { checkLockout } from "../middleware/lockout.js";
 import { validate } from "../middleware/validate.js";
@@ -9,7 +9,7 @@ import { originGuard } from "../middleware/originGuard.js";
 import {
   googleStart,
   googleCallback,
-} from "../controllers/googleAuthController.js";
+} from "../controllers/googleAuth.controller.js";
 
 import {
   getSessions,
