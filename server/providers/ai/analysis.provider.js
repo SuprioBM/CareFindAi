@@ -46,4 +46,3 @@ Return JSON only in this schema:
   console.log(res.choices[0].message.content);
 }
 
-testMainAI().catch(console.error);
