@@ -9,7 +9,9 @@
     "rag:parse-medlineplus": "node Rag/parse-medlineplus.js",
     "rag:build-seeds": "node Rag/build-carefind-seeds.js",
     "rag:upload-qdrant": "node Rag/embed-and-upload.js",
-    "rag:query-qdrant": "node Rag/query-qdrant.js"
+    "rag:query-qdrant": "node Rag/query-qdrant.js",
+    "seed:specializations": "node seeds/specializationSeeds.js",
+    "seed:doctors": "node seeds/doctorSeeds.js"
   },
   "keywords": [],
   "author": "",
