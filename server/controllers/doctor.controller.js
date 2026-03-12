@@ -173,7 +173,7 @@ export async function deleteDoctor(req, res) {
  */
 export async function getNearbyDoctors(req, res) {
   try {
-    const { latitude, longitude, radius = 10, specialization } = req.query;
+    const { latitude, longitude, radius = 20, specialization } = req.query;
 
     if (!latitude || !longitude) {
       return res.status(400).json({
