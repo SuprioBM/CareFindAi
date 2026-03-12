@@ -2,8 +2,8 @@ import crypto from "crypto";
 import jwt from "jsonwebtoken";
 import { getRedis } from "../config/redis.js";
 
-const ACCESS_EXP = "5m";
-const REFRESH_EXP = 7 * 24 * 60 * 60; // seconds
+const ACCESS_EXP = process.env.ACCESS_EXP || "5m";
+const REFRESH_EXP = process.env.REFRESH_EXP || 7 * 24 * 60 * 60; // seconds
 
 export async function issueSession(req, res, user) {
   const redis = getRedis();
