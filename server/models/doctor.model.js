@@ -10,10 +10,19 @@ const doctorSchema = new Schema(
       maxlength: 120,
     },
 
+    // Foreign key reference
     specialization: {
       type: Schema.Types.ObjectId,
       ref: "Specialization",
       required: true,
+    },
+
+    // Stored name for easier querying
+    specializationName: {
+      type: String,
+      required: true,
+      trim: true,
+      maxlength: 120,
     },
 
     qualifications: {
@@ -91,7 +100,6 @@ const doctorSchema = new Schema(
       max: 180,
     },
 
-    // GeoJSON location for MongoDB geospatial queries
     location: {
       type: {
         type: String,
@@ -105,28 +113,15 @@ const doctorSchema = new Schema(
       },
     },
 
-    consultationDays: {
-      type: [String],
-      default: [],
-    },
-
-    consultationStartTime: {
-      type: String,
-      trim: true,
-      default: "",
-    },
-
-    consultationEndTime: {
+    consultation: {
       type: String,
       trim: true,
       default: "",
     },
 
     appointmentPhone: {
-      type: String,
-      trim: true,
-      default: "",
-      maxlength: 30,
+      type: [String],
+      default: [],
     },
 
     appointmentWebsite: {
@@ -155,6 +150,12 @@ const doctorSchema = new Schema(
       default: 0,
     },
 
+    offday: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+
     isActive: {
       type: Boolean,
       default: true,
@@ -177,6 +178,7 @@ const doctorSchema = new Schema(
 );
 
 doctorSchema.index({ specialization: 1 });
+doctorSchema.index({ specializationName: 1 });
 doctorSchema.index({ city: 1, area: 1 });
 doctorSchema.index({ isActive: 1, isApproved: 1 });
 doctorSchema.index({ location: "2dsphere" });
