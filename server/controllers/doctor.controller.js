@@ -4,6 +4,7 @@ function toRadians(value) {
   return (value * Math.PI) / 180;
 }
 
+// Uses the Haversine formula to estimate distance between two coordinates.
 function getDistanceInKm(lat1, lon1, lat2, lon2) {
   const earthRadius = 6371;
   const dLat = toRadians(lat2 - lat1);
@@ -20,6 +21,9 @@ function getDistanceInKm(lat1, lon1, lat2, lon2) {
   return earthRadius * c;
 }
 
+/**
+ * Creates a doctor profile and records which authenticated admin added it.
+ */
 export async function createDoctor(req, res) {
   try {
     const doctor = await Doctor.create({
@@ -41,6 +45,10 @@ export async function createDoctor(req, res) {
   }
 }
 
+/**
+ * Returns doctors with optional query-string filters for specialization,
+ * location, and moderation flags.
+ */
 export async function getAllDoctors(req, res) {
   try {
     const { specialization, city, area, isActive, isApproved } = req.query;
@@ -72,6 +80,9 @@ export async function getAllDoctors(req, res) {
   }
 }
 
+/**
+ * Fetches a single doctor record by MongoDB id.
+ */
 export async function getDoctorById(req, res) {
   try {
     const doctor = await Doctor.findById(req.params.id)
@@ -98,6 +109,9 @@ export async function getDoctorById(req, res) {
   }
 }
 
+/**
+ * Updates a doctor document and returns the validated result.
+ */
 export async function updateDoctor(req, res) {
   try {
     const doctor = await Doctor.findByIdAndUpdate(req.params.id, req.body, {
@@ -126,6 +140,9 @@ export async function updateDoctor(req, res) {
   }
 }
 
+/**
+ * Removes a doctor record permanently.
+ */
 export async function deleteDoctor(req, res) {
   try {
     const doctor = await Doctor.findByIdAndDelete(req.params.id);
@@ -150,6 +167,10 @@ export async function deleteDoctor(req, res) {
   }
 }
 
+/**
+ * Finds approved, active doctors near a given coordinate and returns them
+ * sorted by computed distance in kilometers.
+ */
 export async function getNearbyDoctors(req, res) {
   try {
     const { latitude, longitude, radius = 10, specialization } = req.query;
