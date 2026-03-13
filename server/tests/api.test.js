@@ -10,6 +10,17 @@ jest.unstable_mockModule("../config/redis.js", () => ({
   default: () => mockRedis, // if any default import remains
 }));
 
+jest.unstable_mockModule("../modules/ai/ai.openRouter.js", () => ({
+  generateOpenRouterResponse: jest.fn(),
+  default: {},
+}));
+
+jest.unstable_mockModule("../modules/ai/ai.retrieval.js", () => ({
+  retrieveRelevantDocs: jest.fn(async () => []),
+  searchQdrant: jest.fn(async () => []),
+  default: {},
+}));
+
 const { default: app } = await import("../app.js");
 import request from "supertest";
 
