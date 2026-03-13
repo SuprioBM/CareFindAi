@@ -1,9 +1,15 @@
 /**
  * Add Doctor Component
  *
+ * Implements Feature 1: The system shall allow administrators to add, update, and remove
+ * doctor information, including specialization, location, and chamber details.
+ *
+ * This component handles the "add" part of the feature. Update and remove functionalities
+ * are implemented in separate components (e.g., doctor list/edit components).
+ *
  * Sections:
  * - Breadcrumb navigation
- * - Form with photo upload, personal info, practice details, active toggle, actions
+ * - Form with photo upload, personal info (including specialization), practice details (location and chamber), active toggle, actions
  */
 
 'use client';
@@ -73,7 +79,7 @@ export default function AddDoctor({ onNavigate }: Props) {
             </div>
           </div>
 
-          // Personal Info
+          // Personal Info - includes specialization as per feature requirements
           {/* Personal Info */}
           <div className="space-y-6">
             <h3 className="text-lg font-semibold text-text-base">Personal Information</h3>
@@ -99,7 +105,7 @@ export default function AddDoctor({ onNavigate }: Props) {
             </div>
           </div>
 
-          // Practice Details
+          // Practice Details - includes location and chamber details as per feature requirements
           {/* Practice Details */}
           <div className="space-y-6 pt-6 border-t border-border">
             <h3 className="text-lg font-semibold text-text-base">Practice Details</h3>
