@@ -24,5 +24,25 @@ type Section =
   | 'settings';
 
 
+type SavedDoctor = {
+  id: number;
+  name: string;
+  specialty: string;
+  rating: string;
+  reviews: number;
+  image: string;
+};
 
-export type { User, AuthContextType, Section };
+type SavedLocation = {
+  id: number;
+  tag: string;
+  name: string;
+  addressLine1: string;
+  addressLine2: string;
+  image: string;
+  lat: number;
+  lng: number;
+};
+
+
+export type { User, AuthContextType, Section, SavedDoctor, SavedLocation };

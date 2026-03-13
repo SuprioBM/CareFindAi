@@ -5,17 +5,17 @@ import { usePathname } from 'next/navigation';
 
 const navItems = [
   { href: '/dashboard', icon: 'dashboard', label: 'Dashboard' },
-  { href: '/dashboard/previous-searches', icon: 'history', label: 'Previous Searches' },
-  { href: '#', icon: 'favorite', label: 'Saved Doctors' },
-  { href: '#', icon: 'location_on', label: 'Saved Locations' },
+  { href: '/dashboard/previous_searches', icon: 'history', label: 'Previous Searches' },
+  { href: '/dashboard/saved_items', icon: 'favorite', label: 'Saved Items' },
   { href: '/symptoms', icon: 'monitoring', label: 'Symptom Analyzer' },
+  { href: '/manual-search', icon: 'travel_explore', label: 'Manual Search' },
 ];
 
 export default function DashboardSidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="w-64 flex-shrink-0 flex-col justify-between bg-surface border-r border-border hidden lg:flex py-6 overflow-y-auto">
+    <aside className="w-64 shrink-0 flex-col justify-between bg-surface border-r border-border hidden lg:flex py-6 overflow-y-auto">
       <div className="flex flex-col gap-8 px-4">
         <div className="flex flex-col gap-2">
           <p className="px-3 text-xs font-bold uppercase tracking-wider text-text-muted mb-2">Menu</p>
@@ -27,7 +27,7 @@ export default function DashboardSidebar() {
                 href={href}
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
                   active
-                    ? 'bg-gradient-to-r from-primary/20 to-transparent border-l-2 border-primary text-primary'
+                    ? 'bg-linear-to-r from-primary/20 to-transparent border-l-2 border-primary text-primary'
                     : 'text-text-muted hover:bg-white/5 hover:text-text-base'
                 }`}
               >

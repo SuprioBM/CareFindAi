@@ -3,9 +3,9 @@ import { callOpenRouter } from "../modules/ai/ai.openRouter.js";
 
 export async function analyzeSymptomsController(req, res) {
   try {
-    const result = await analyzeSymptomsFlow(req.body);
+    const result = await analyzeSymptomsFlow(req.body);    
 
-    return res.status(result.status).json(result);
+    return res.status(result.status).json(result.data);
   } catch (error) {
     console.error("AI analyze error:", error);
 

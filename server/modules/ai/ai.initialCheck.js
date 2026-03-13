@@ -13,13 +13,24 @@ function normalizeText(text) {
   return text.replace(/\s+/g, " ").trim();
 }
 
-function looksLikeSpam(text) {
-  const lower = text.toLowerCase();
+function detectLanguage(text) {
+  // Bangla Unicode block
+  if (/[\u0980-\u09FF]/u.test(text)) return "bn";
+  return "en";
+}
 
-  if (/^(.)\1{5,}$/.test(lower)) return true; // aaaaaaa
-  if (/^\d+$/.test(lower)) return true; // only numbers
-  if (/^[^a-zA-Z]+$/.test(lower)) return true; // only symbols
-  if (lower.split(" ").length === 1 && lower.length < 5) return true;
+function looksLikeSpam(text) {
+  const normalized = normalizeText(text);
+  const lower = normalized.toLowerCase();
+
+  if (/^(.)\1{5,}$/u.test(lower)) return true; // aaaaaaa / একই অক্ষর অনেকবার
+  if (/^\d+$/u.test(lower)) return true; // only numbers
+
+  // only symbols / punctuation, but allows letters from Bangla + English + other languages
+  if (/^[^\p{L}\p{N}\s]+$/u.test(lower)) return true;
+
+  // single very short token like "hi", "??", "ok"
+  if (normalized.split(/\s+/).length === 1 && normalized.length < 3) return true;
 
   return false;
 }
@@ -36,6 +47,12 @@ function looksObviouslyNonMedical(text) {
     "act as chatgpt",
     "hello bro",
     "how are you",
+    "write an essay",
+    "tell me story",
+    "generate code",
+    "pretend to be",
+    "system prompt",
+    "developer prompt",
   ];
 
   return blocked.some((item) => lower.includes(item));
@@ -74,7 +91,10 @@ export function runInitialCheck(body) {
     ok: true,
     data: {
       symptoms: cleanedText,
-      language: parsed.data.language || "auto",
+      language:
+        parsed.data.language === "auto"
+          ? detectLanguage(cleanedText)
+          : parsed.data.language || "auto",
     },
   };
 }

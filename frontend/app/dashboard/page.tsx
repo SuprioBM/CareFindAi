@@ -92,7 +92,7 @@ export default function DashboardPage() {
                   <span className="material-symbols-outlined text-primary">history</span>
                   Previous Searches
                 </h2>
-                <Link href="/dashboard/previous-searches" className="text-sm font-medium text-primary hover:underline">View all</Link>
+                <Link href="/dashboard/previous_searches" className="text-sm font-medium text-primary hover:underline">View all</Link>
               </div>
               <div className="flex gap-3 flex-wrap">
                 {previousSearches.map(({ icon, label }) => (
