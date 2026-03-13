@@ -9,7 +9,7 @@ function requireOpenRouterKey() {
   return key;
 }
 
-const OPENROUTER_API_KEY = requireOpenRouterKey();
+
 const OPENROUTER_BASE_URL =
   process.env.OPENROUTER_BASE_URL || "https://openrouter.ai/api/v1";
 
@@ -85,6 +85,7 @@ export async function callOpenRouter({
   reasoning,
   retries = 2,
 }) {
+  const OPENROUTER_API_KEY = requireOpenRouterKey();
   let lastError;
 
   for (let attempt = 0; attempt <= retries; attempt++) {
