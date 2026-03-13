@@ -1,15 +1,20 @@
 import "dotenv/config";
 
-const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
+
+function requireOpenRouterKey() {
+  const key = process.env.OPENROUTER_API_KEY;
+  if (!key) {
+    throw new Error("Missing OPENROUTER_API_KEY in environment");
+  }
+  return key;
+}
+
+const OPENROUTER_API_KEY = requireOpenRouterKey();
 const OPENROUTER_BASE_URL =
   process.env.OPENROUTER_BASE_URL || "https://openrouter.ai/api/v1";
 
 if (!OPENROUTER_API_KEY) {
   throw new Error("Missing OPENROUTER_API_KEY in .env");
-}
-
-function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function extractErrorMessage(payloadText) {
