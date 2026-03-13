@@ -1,10 +1,32 @@
+/**
+ * Doctor Controller
+ *
+ * Functions:
+ * toRadians - Converts degrees to radians
+ * getDistanceInKm - Calculates distance between two coordinates using Haversine formula
+ * createDoctor - Creates a doctor profile and records which authenticated admin added it
+ * getAllDoctors - Returns doctors with optional query-string filters for specialization, location, and moderation flags
+ * getDoctorById - Fetches a single doctor record by MongoDB id
+ * updateDoctor - Updates a doctor document and returns the validated result
+ * deleteDoctor - Removes a doctor record permanently
+ * getNearbyDoctors - Finds approved, active doctors near a given coordinate and returns them sorted by computed distance
+ * manualSearch - Performs manual search for doctors with various filters
+ */
+
 import Doctor from "../models/doctor.model.js";
 
+// Convert degrees to radians
+/**
+ * Converts degrees to radians
+ */
 function toRadians(value) {
   return (value * Math.PI) / 180;
 }
 
-// Uses the Haversine formula to estimate distance between two coordinates.
+// Calculate distance between two coordinates using Haversine formula
+/**
+ * Uses the Haversine formula to estimate distance between two coordinates.
+ */
 function getDistanceInKm(lat1, lon1, lat2, lon2) {
   const earthRadius = 6371;
   const dLat = toRadians(lat2 - lat1);
@@ -21,6 +43,7 @@ function getDistanceInKm(lat1, lon1, lat2, lon2) {
   return earthRadius * c;
 }
 
+// Create a new doctor
 /**
  * Creates a doctor profile and records which authenticated admin added it.
  */
@@ -45,6 +68,7 @@ export async function createDoctor(req, res) {
   }
 }
 
+// Get all doctors
 /**
  * Returns doctors with optional query-string filters for specialization,
  * location, and moderation flags.
@@ -80,6 +104,7 @@ export async function getAllDoctors(req, res) {
   }
 }
 
+// Get a single doctor by ID
 /**
  * Fetches a single doctor record by MongoDB id.
  */
@@ -109,6 +134,7 @@ export async function getDoctorById(req, res) {
   }
 }
 
+// Update a doctor's details by ID
 /**
  * Updates a doctor document and returns the validated result.
  */
@@ -140,6 +166,7 @@ export async function updateDoctor(req, res) {
   }
 }
 
+// Delete a doctor by ID
 /**
  * Removes a doctor record permanently.
  */
@@ -167,6 +194,7 @@ export async function deleteDoctor(req, res) {
   }
 }
 
+// Find nearby doctors by location
 /**
  * Finds approved, active doctors near a given coordinate and returns them
  * sorted by computed distance in kilometers.
@@ -228,11 +256,9 @@ export async function getNearbyDoctors(req, res) {
   }
 }
 
-
-
+// Manual Search
 /**
- * Finds approved, active doctors near a given coordinate and returns them
- * sorted by computed distance in kilometers.
+ * Performs manual search for doctors with various filters
  */
 export async function manualSearch(req, res) {
   try {
