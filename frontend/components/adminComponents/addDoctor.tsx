@@ -1,3 +1,11 @@
+/**
+ * Add Doctor Component
+ *
+ * Sections:
+ * - Breadcrumb navigation
+ * - Form with photo upload, personal info, practice details, active toggle, actions
+ */
+
 'use client';
 
 import { useState } from 'react';
@@ -20,11 +28,16 @@ const chambers = [
   { value: 'neuro-hub',  label: 'Neuro Health Hub' },
 ];
 
+// Add Doctor component
+/**
+ * Component for adding a new doctor profile
+ */
 export default function AddDoctor({ onNavigate }: Props) {
   const [isActive, setIsActive] = useState(true);
 
   return (
     <div className="p-6 lg:p-8">
+      // Breadcrumb
       {/* Breadcrumb */}
       <div className="mb-6 max-w-4xl mx-auto w-full">
         <div className="flex items-center gap-2 text-text-muted mb-3 text-sm">
@@ -41,9 +54,11 @@ export default function AddDoctor({ onNavigate }: Props) {
         <p className="text-text-muted text-sm mt-2">Enter the doctor&apos;s details below to register their profile in the system.</p>
       </div>
 
+      // Form Card
       {/* Form Card */}
       <div className="bg-card rounded-2xl border border-border shadow-xl max-w-4xl w-full mx-auto p-8 lg:p-10">
         <form className="space-y-8" onSubmit={(e) => e.preventDefault()}>
+          // Photo
           {/* Photo */}
           <div className="flex items-center gap-6 pb-8 border-b border-border">
             <div className="h-24 w-24 rounded-full bg-surface border-2 border-dashed border-border flex items-center justify-center text-text-muted cursor-pointer hover:bg-section-teal hover:border-primary/50 hover:text-primary transition-all shrink-0">
@@ -58,6 +73,7 @@ export default function AddDoctor({ onNavigate }: Props) {
             </div>
           </div>
 
+          // Personal Info
           {/* Personal Info */}
           <div className="space-y-6">
             <h3 className="text-lg font-semibold text-text-base">Personal Information</h3>
@@ -83,6 +99,7 @@ export default function AddDoctor({ onNavigate }: Props) {
             </div>
           </div>
 
+          // Practice Details
           {/* Practice Details */}
           <div className="space-y-6 pt-6 border-t border-border">
             <h3 className="text-lg font-semibold text-text-base">Practice Details</h3>
@@ -108,6 +125,7 @@ export default function AddDoctor({ onNavigate }: Props) {
             </div>
           </div>
 
+          // Active Toggle
           {/* Active Toggle */}
           <div className="pt-6 border-t border-border">
             <label className="flex items-center gap-3 cursor-pointer w-max group">
@@ -124,6 +142,7 @@ export default function AddDoctor({ onNavigate }: Props) {
             </label>
           </div>
 
+          // Actions
           {/* Actions */}
           <div className="flex justify-end gap-4 pt-4">
             <button
