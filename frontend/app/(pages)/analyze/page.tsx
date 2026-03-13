@@ -2,21 +2,18 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import ThemeToggle from '../../../components/Themes/ThemeToggle';
 import { apiFetch } from '@/lib/api';
+import { AnalysisResponse, NearbyDoctorsResponse } from '@/types/types';
 
-type AnalysisResponse = {
-  specialist?: string;
-  explanation?: string;
-  urgency?: 'low' | 'medium' | 'high' | string;
-  warningMessage?: string;
-  matchedSymptoms?: string[];
-  canShowDoctors?: boolean;
-};
 
 export default function SymptomsPage() {
+  const router = useRouter();
+
   const [symptoms, setSymptoms] = useState('');
   const [loading, setLoading] = useState(false);
+  const [findingDoctors, setFindingDoctors] = useState(false);
   const [analysis, setAnalysis] = useState<AnalysisResponse | null>(null);
   const [error, setError] = useState('');
 
@@ -41,7 +38,6 @@ export default function SymptomsPage() {
         body: JSON.stringify({ symptoms }),
       });
 
-
       const rawText = await res.text();
 
       let parsed: any = null;
@@ -58,8 +54,6 @@ export default function SymptomsPage() {
       }
 
       const finalData: AnalysisResponse = parsed?.data ?? parsed;
-
-
       setAnalysis(finalData);
     } catch (err: any) {
       console.error('Analyze symptoms error:', err);
@@ -73,6 +67,96 @@ export default function SymptomsPage() {
     setSymptoms('');
     setAnalysis(null);
     setError('');
+  }
+
+  function getCurrentPosition(): Promise<GeolocationPosition> {
+    return new Promise((resolve, reject) => {
+      if (!navigator.geolocation) {
+        reject(new Error('Geolocation is not supported by your browser.'));
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(resolve, reject, {
+        enableHighAccuracy: true,
+        timeout: 15000,
+        maximumAge: 0,
+      });
+    });
+  }
+
+  async function handleFindNearbySpecialist() {
+    try {
+      if (!analysis?.specialist?.trim()) {
+        setError('No recommended specialist found yet.');
+        return;
+      }
+
+      setFindingDoctors(true);
+      setError('');
+
+      const position = await getCurrentPosition();
+
+      const latitude = position.coords.latitude;
+      const longitude = position.coords.longitude;
+
+      const params = new URLSearchParams({
+        latitude: String(latitude),
+        longitude: String(longitude),
+        radius: '20',
+        specializationName: analysis.specialist.trim(),
+      });
+
+      const res = await apiFetch(`/doctors/nearby/search?${params.toString()}`, {
+        method: 'GET',
+      });
+
+      const rawText = await res.text();
+
+      let parsed: NearbyDoctorsResponse | null = null;
+
+      try {
+        parsed = rawText ? JSON.parse(rawText) : null;
+      } catch (parseError) {
+        console.error('Nearby doctors JSON parse error:', parseError);
+        throw new Error('Frontend could not parse nearby doctors response.');
+      }
+
+      if (!res.ok) {
+        throw new Error(parsed?.message || 'Failed to fetch nearby doctors.');
+      }
+
+      const nearbyDoctorsData = parsed;
+
+      sessionStorage.setItem(
+        'carefind_nearby_doctors',
+        JSON.stringify({
+          userLocation: {
+            latitude,
+            longitude,
+          },
+          specialization: nearbyDoctorsData?.specialization ?? null,
+          doctors: nearbyDoctorsData?.data ?? [],
+          fromSymptomsPage: true,
+          searchedSymptoms: symptoms,
+        })
+      );
+
+      router.push('/map');
+    } catch (err: any) {
+      console.error('Find nearby specialist error:', err);
+
+      if (err?.code === 1) {
+        setError('Location permission was denied. Please allow location access.');
+      } else if (err?.code === 2) {
+        setError('Could not detect your location. Please try again.');
+      } else if (err?.code === 3) {
+        setError('Location request timed out. Please try again.');
+      } else {
+        setError(err?.message || 'Failed to find nearby doctors.');
+      }
+    } finally {
+      setFindingDoctors(false);
+    }
   }
 
   const urgencyTone =
@@ -176,7 +260,7 @@ export default function SymptomsPage() {
         <div className="flex flex-1 gap-4 flex-wrap px-4 py-3 mb-8">
           <button
             onClick={analyzeSymptoms}
-            disabled={loading}
+            disabled={loading || findingDoctors}
             className="flex min-w-[120px] cursor-pointer items-center justify-center rounded-xl h-12 px-6 bg-primary hover:bg-primary-hover disabled:opacity-70 disabled:cursor-not-allowed text-white text-base font-bold shadow-lg shadow-primary/30 transition-all hover:scale-[1.02]"
           >
             <span className="material-symbols-outlined mr-2">
@@ -188,7 +272,8 @@ export default function SymptomsPage() {
           <button
             type="button"
             onClick={clearAll}
-            className="flex min-w-[100px] cursor-pointer items-center justify-center rounded-xl h-12 px-6 bg-primary/10 hover:bg-primary/20 text-text-sub text-base font-bold transition-colors"
+            disabled={loading || findingDoctors}
+            className="flex min-w-[100px] cursor-pointer items-center justify-center rounded-xl h-12 px-6 bg-primary/10 hover:bg-primary/20 disabled:opacity-70 disabled:cursor-not-allowed text-text-sub text-base font-bold transition-colors"
           >
             Clear
           </button>
@@ -297,11 +382,16 @@ export default function SymptomsPage() {
                 </div>
               )}
 
-              <button className="flex w-full items-center justify-center rounded-xl h-11 px-5 bg-primary text-white text-sm font-bold hover:bg-primary-hover transition-colors shadow-lg shadow-primary/20">
+              <button
+                type="button"
+                onClick={handleFindNearbySpecialist}
+                disabled={findingDoctors || !analysis?.specialist}
+                className="flex w-full items-center justify-center rounded-xl h-11 px-5 bg-primary text-white text-sm font-bold hover:bg-primary-hover disabled:opacity-70 disabled:cursor-not-allowed transition-colors shadow-lg shadow-primary/20"
+              >
                 <span className="material-symbols-outlined mr-2 text-[18px]">
-                  location_on
+                  {findingDoctors ? 'progress_activity' : 'location_on'}
                 </span>
-                See Nearby Specialist
+                {findingDoctors ? 'Finding Nearby Doctors...' : 'See Nearby Specialist'}
               </button>
             </div>
           </div>
