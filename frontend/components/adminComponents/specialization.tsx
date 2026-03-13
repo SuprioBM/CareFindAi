@@ -1,3 +1,20 @@
+/**
+ * Specialization Management Component
+ *
+ * Implements Feature 2: The system shall allow administrators to manage medical
+ * specializations and categories used by the AI recommendation system.
+ *
+ * This component provides an interface for administrators to view, add, and manage
+ * medical specializations that are used throughout the system for doctor categorization
+ * and AI-driven recommendations.
+ *
+ * Sections:
+ * - Header with add button
+ * - Filters and search
+ * - Specialization cards grid
+ * - Pagination
+ */
+
 const specializations = [
   { name: 'Cardiologist', icon: 'favorite',   description: 'Heart and cardiovascular system specialists dealing with complex disorders.',         doctorCount: 24, active: true  },
   { name: 'Neurologist',  icon: 'neurology',  description: 'Specialists treating diseases of the brain, spinal cord, and nervous system.',      doctorCount: 18, active: true  },
@@ -5,6 +22,10 @@ const specializations = [
   { name: 'Dermatologist',icon: 'face',       description: 'Specialists for skin, hair, and nail conditions and treatments.',                   doctorCount: 15, active: false },
 ];
 
+// Specialization Card component
+/**
+ * Displays a single specialization with its details, status, and actions
+ */
 function SpecializationCard({ name, icon, description, doctorCount, active }: (typeof specializations)[number]) {
   return (
     <div className={`bg-card rounded-2xl p-6 border transition-all relative overflow-hidden group flex flex-col h-full ${active ? 'border-border hover:border-primary/50' : 'border-border opacity-75 hover:opacity-100'}`}>
@@ -40,9 +61,14 @@ function SpecializationCard({ name, icon, description, doctorCount, active }: (t
   );
 }
 
+// Specializations component
+/**
+ * Main component for managing medical specializations and categories
+ */
 export default function Specializations() {
   return (
     <div className="p-6 lg:p-8">
+      // Header
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8">
         <div>
@@ -54,6 +80,7 @@ export default function Specializations() {
         </button>
       </div>
 
+      // Filters
       {/* Filters */}
       <div className="flex flex-wrap items-center justify-between gap-4 p-4 bg-card rounded-2xl border border-border mb-8">
         <div className="relative w-full md:w-auto flex-1 max-w-md">
@@ -71,6 +98,7 @@ export default function Specializations() {
         </div>
       </div>
 
+      // Cards
       {/* Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {specializations.map((spec) => <SpecializationCard key={spec.name} {...spec} />)}
@@ -83,6 +111,7 @@ export default function Specializations() {
         </div>
       </div>
 
+      // Pagination
       {/* Pagination */}
       <div className="flex items-center justify-between mt-8 pt-6 border-t border-border">
         <span className="text-sm text-text-muted">
