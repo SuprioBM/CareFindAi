@@ -13,10 +13,7 @@ function requireOpenRouterKey() {
 const OPENROUTER_BASE_URL =
   process.env.OPENROUTER_BASE_URL || "https://openrouter.ai/api/v1";
 
-if (!OPENROUTER_API_KEY) {
-  throw new Error("Missing OPENROUTER_API_KEY in .env");
-}
-
+  
 function extractErrorMessage(payloadText) {
   try {
     const parsed = JSON.parse(payloadText);
