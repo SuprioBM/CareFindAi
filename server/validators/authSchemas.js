@@ -59,9 +59,5 @@ export const forgotPasswordSchema = z.object({
 
 export const resetPasswordSchema = z.object({
   email: z.string().trim().email().max(254),
-  code: z
-    .string()
-    .trim()
-    .regex(/^\d{6}$/, "Code must be 6 digits"),
   password: z.string().min(1).max(200), // keep your “freedom” rule
 });

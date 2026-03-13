@@ -9,8 +9,7 @@ import {
 } from "../middleware/sendEmail.js";
 import { issueSession, revokeAllSessionsForUser } from "../utils/manageSessions.js";
 
-const ACCESS_EXP = "3m"; // short-lived access token
-const REFRESH_EXP = 7 * 24 * 60 * 60; // 7 days in seconds
+
 
 /* ========== REGISTER ========== */
 export async function register(req, res) {
@@ -72,10 +71,9 @@ export async function login(req, res) {
 
     // Block login if not verified
     if (!user.emailVerified) {
-      return res.status(403).json({
+      return res.status(403).json({ user: { email: user.email, isVerified: user.emailVerified },
         code: "EMAIL_NOT_VERIFIED",
         message: "Please verify your email first",
-        email: user.email,
       });
     }
 
@@ -169,6 +167,8 @@ export async function forgotPassword(req, res) {
     user.passwordResetCodeExp = new Date(Date.now() + OTP_MIN * 60 * 1000);
     user.passwordResetAttempts = 0;
     user.passwordResetLastSentAt = new Date();
+    user.passwordResetverified = false;
+    user.passwordResetVerifiedAt = null;
     await user.save();
 
     await sendPasswordResetEmail({ to: user.email, code });
@@ -184,54 +184,51 @@ export async function forgotPassword(req, res) {
 
 export async function resetPassword(req, res) {
   try {
-    const { email, code, password } = req.body;
+    const { email, password } = req.body;
     const e = email.toLowerCase().trim();
 
     const user = await User.findOne({ email: e });
-    if (!user)
-      return res.status(400).json({ message: "Invalid code or email" });
-
-    if (!user.passwordResetCodeHash || !user.passwordResetCodeExp) {
-      return res
-        .status(400)
-        .json({ message: "No reset code found. Please request again." });
+    if (!user) {
+      return res.status(400).json({ message: "Invalid reset request" });
     }
 
-    if (user.passwordResetCodeExp.getTime() < Date.now()) {
-      return res
-        .status(400)
-        .json({ message: "Code expired. Please request again." });
+    if (!user.passwordResetverified || !user.passwordResetVerifiedAt) {
+      return res.status(403).json({
+        message: "Please verify your reset code first.",
+      });
     }
 
-    if ((user.passwordResetAttempts || 0) >= 5) {
-      return res
-        .status(429)
-        .json({ message: "Too many attempts. Please request a new code." });
-    }
+    // Verification should be recent
+    const VERIFIED_WINDOW_MIN = 10;
+    const verifiedTooOld =
+      Date.now() - user.passwordResetVerifiedAt.getTime() >
+      VERIFIED_WINDOW_MIN * 60 * 1000;
 
-    const ok = hashOtp(code) === user.passwordResetCodeHash;
-    if (!ok) {
-      user.passwordResetAttempts = (user.passwordResetAttempts || 0) + 1;
+    if (verifiedTooOld) {
+      user.passwordResetverified = false;
+      user.passwordResetVerifiedAt = null;
       await user.save();
-      return res.status(400).json({ message: "Invalid code or email" });
+
+      return res.status(400).json({
+        message: "Reset session expired. Please verify again.",
+      });
     }
 
-    // ✅ Update password (argon2)
     const hashedPassword = await argon2.hash(password);
     user.password = hashedPassword;
 
-    // Clear reset fields
+    // Clear all reset-related fields
     user.passwordResetCodeHash = null;
     user.passwordResetCodeExp = null;
     user.passwordResetAttempts = 0;
     user.passwordResetLastSentAt = null;
+    user.passwordResetverified = false;
+    user.passwordResetVerifiedAt = null;
 
     await user.save();
 
-    // ✅ Security: log out everywhere (revoke refresh sessions)
     await revokeAllSessionsForUser(user._id.toString());
 
-    // Clear cookie too (if they had one)
     res.clearCookie("refresh_token", {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",

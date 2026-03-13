@@ -157,8 +157,10 @@ export async function verifyEmail(req, res) {
   try {
     const { email, code } = req.body;
     const e = email.toLowerCase().trim();
+    
 
     const user = await User.findOne({ email: e });
+    
     if (!user)
       return res.status(400).json({ message: "Invalid code or email" });
 
@@ -239,6 +241,55 @@ export async function resendVerification(req, res) {
     return res.json({ message: "If that email exists, we sent a new code." });
   } catch (err) {
     console.error("resendVerification error:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+}
+
+export async function verifyResetCode(req, res) {
+  try {
+    const { email, code } = req.body;
+    const e = email.toLowerCase().trim();
+
+    const user = await User.findOne({ email: e });
+    if (!user) {
+      return res.status(400).json({ message: "Invalid code or email" });
+    }
+
+    if (!user.passwordResetCodeHash || !user.passwordResetCodeExp) {
+      return res.status(400).json({
+        message: "No reset code found. Please request again.",
+      });
+    }
+
+    if (user.passwordResetCodeExp.getTime() < Date.now()) {
+      return res.status(400).json({
+        message: "Code expired. Please request again.",
+      });
+    }
+
+    if ((user.passwordResetAttempts || 0) >= 5) {
+      return res.status(429).json({
+        message: "Too many attempts. Please request a new code.",
+      });
+    }
+
+    const ok = hashOtp(code) === user.passwordResetCodeHash;
+    if (!ok) {
+      user.passwordResetAttempts = (user.passwordResetAttempts || 0) + 1;
+      await user.save();
+
+      return res.status(400).json({ message: "Invalid code or email" });
+    }
+
+    user.passwordResetverified = true;
+    user.passwordResetVerifiedAt = new Date();
+    await user.save();
+
+    return res.json({
+      message: "Reset code verified successfully.",
+    });
+  } catch (err) {
+    console.error("verifyResetCode error:", err);
     return res.status(500).json({ message: "Server error" });
   }
 }

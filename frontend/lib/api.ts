@@ -9,7 +9,6 @@ let refreshPromise: Promise<string | null> | null = null;
 const NO_REFRESH_ENDPOINTS = [
   "/auth/login",
   "/auth/register",
-  "/auth/verify-email",
   "/auth/resend-verification",
   "/auth/forgot-password",
   "/auth/reset-password",

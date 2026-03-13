@@ -11,5 +11,18 @@ type AuthContextType = {
   logout: () => Promise<void>;
 };
 
+type Section =
+  | 'dashboard'
+  | 'doctors'
+  | 'add-doctor'
+  | 'specializations'
+  | 'suggestions'
+  | 'patients'
+  | 'appointments'
+  | 'chambers'
+  | 'reports'
+  | 'settings';
 
-export type { User, AuthContextType };
+
+
+export type { User, AuthContextType, Section };

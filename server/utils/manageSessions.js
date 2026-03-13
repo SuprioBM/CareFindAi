@@ -45,7 +45,7 @@ export async function issueSession(req, res, user) {
 
   return {
     accessToken,
-    user: { id: user._id.toString(), name: user.name, email: user.email },
+    user: { id: user._id.toString(), name: user.name, email: user.email, isVerified: user.emailVerified },
   };
 }
 

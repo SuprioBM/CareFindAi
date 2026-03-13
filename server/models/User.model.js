@@ -31,6 +31,10 @@ const userSchema = new Schema(
     passwordResetCodeExp: { type: Date, default: null },
     passwordResetAttempts: { type: Number, default: 0 },
     passwordResetLastSentAt: { type: Date, default: null },
+    passwordResetverified: { type: Boolean, default: false },
+    passwordResetVerifiedAt: { type: Date, default: null },
+
+
   },
   { timestamps: true },
 );

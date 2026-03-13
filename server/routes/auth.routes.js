@@ -1,6 +1,6 @@
 import express from "express";
 import { register, login, logout,forgotPassword,resetPassword } from "../controllers/auth.controller.js";
-import { protect, refresh,verifyEmail,resendVerification } from "../middleware/authMiddleware.js";
+import { protect, refresh,verifyEmail,resendVerification, verifyResetCode } from "../middleware/authMiddleware.js";
 import { checkLockout } from "../middleware/lockout.js";
 import { validate } from "../middleware/validate.js";
 import { loginSchema, registerSchema,verifyEmailSchema,resendVerifySchema,forgotPasswordSchema,resetPasswordSchema } from "../validators/authSchemas.js";
@@ -72,6 +72,11 @@ router.post(
   resetPassword,
 );
 
+router.post(
+  "/verify-reset-code",
+   validate(verifyEmailSchema), 
+  verifyResetCode, 
+)
 
 // Google OAuth redirect flow
 router.get("/google/start", arcjetProtect({ requested: 2 }), googleStart);
