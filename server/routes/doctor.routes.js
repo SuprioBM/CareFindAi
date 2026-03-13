@@ -19,6 +19,7 @@ import {
   updateDoctor,
   deleteDoctor,
   getNearbyDoctors,
+  manualSearch,
 } from "../controllers/doctor.controller.js";
 
 const router = express.Router();
@@ -28,6 +29,9 @@ router.post("/", createDoctor);
 
 // Get all doctors
 router.get("/", getAllDoctors);
+
+// Manual Search
+router.get("/manual/search", manualSearch);
 
 // Find nearby doctors by location — must be registered before /:id to avoid route conflict
 router.get("/nearby/search", getNearbyDoctors);

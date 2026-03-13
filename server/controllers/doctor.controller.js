@@ -227,3 +227,77 @@ export async function getNearbyDoctors(req, res) {
     });
   }
 }
+
+
+
+/**
+ * Finds approved, active doctors near a given coordinate and returns them
+ * sorted by computed distance in kilometers.
+ */
+export async function manualSearch(req, res) {
+  try {
+    const {
+      specialization,
+      fullName,
+      qualifications,
+      gender,
+      hospitalOrClinic,
+      chamberAddress,
+      area,
+      city,
+      district,
+      country,
+      consultation,
+      fees,
+      offday,
+    } = req.query;
+
+
+    const filter = {
+      isActive: true,
+      isApproved: true,
+    };
+
+    if (specialization) {
+      filter.specialization = specialization;
+    }
+
+    if (fullName) filter.fullName = { $regex: fullName, $options: "i" };
+    if (qualifications) filter.qualifications = { $regex: qualifications, $options: "i" };
+    if (gender) filter.gender = gender;
+    if (hospitalOrClinic) filter.hospitalOrClinic = { $regex: hospitalOrClinic, $options: "i" };
+    if (chamberAddress) filter.chamberAddress = { $regex: chamberAddress, $options: "i" };
+    if (area) filter.area = { $regex: area, $options: "i" };
+    if (city) filter.city = { $regex: city, $options: "i" };
+    if (district) filter.district = { $regex: district, $options: "i" };
+    if (country) filter.country = { $regex: country, $options: "i" };
+    if (consultation) filter.consultation = consultation;
+    if (offday) filter.offday = offday;
+
+    if (typeof fees !== "undefined" && fees !== "") {
+      const parsedFees = Number(fees);
+      if (!Number.isNaN(parsedFees)) {
+        filter.fees = parsedFees;
+      }
+    }
+
+    const doctors = await Doctor.find(filter)
+      .populate("specialization")
+      .sort({ createdAt: -1 });
+
+    return res.status(200).json({
+      success: true,
+      count: doctors.length,
+      data: doctors,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch doctors",
+      error: error.message,
+    });
+  }
+}
+
+
+
