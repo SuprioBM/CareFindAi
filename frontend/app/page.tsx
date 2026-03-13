@@ -33,7 +33,7 @@ const steps = [
 
 const features = [
   { icon: 'psychology', title: 'AI Analysis', desc: 'State-of-the-art symptom checker trained on millions of medical records.' },
-  { icon: 'person_search', title: 'Doctor Discovery', desc: 'Smart filters for insurance, language, availability, and specialty.' },
+  { icon: 'person_search', title: 'Doctor Discovery', desc: 'Discover qualified doctors using intelligent filters and specialties.' },
   { icon: 'map', title: 'Map Search', desc: 'Interactive map to find top-rated specialists in your immediate neighborhood.' },
 ];
 
@@ -90,7 +90,7 @@ export default function Home() {
                   <span className="material-symbols-outlined text-primary text-2xl">verified</span>
                   <div>
                     <p className="text-xs font-bold text-text-muted">Verified Doctors</p>
-                    <p className="text-sm font-bold text-text-base">50k+ Available</p>
+                    <p className="text-sm font-bold text-text-base">900+ Available</p>
                   </div>
                 </div>
               </div>
@@ -174,7 +174,7 @@ export default function Home() {
         </section>
 
         {/* ── Features ───────────────────────────────────────────── */}
-        <section className="py-24 bg-card">
+        <section className="py-24 bg-card" id="features">
           <div className="max-w-7xl mx-auto px-6">
             <div className="text-center mb-16">
               <h2 className="text-3xl md:text-4xl font-black mb-4">Powerful Features for Better Health</h2>
@@ -198,7 +198,7 @@ export default function Home() {
                   </div>
                   <div>
                     <h3 className="text-xl font-bold mb-2">Saved Care Team</h3>
-                    <p className="text-text-sub">Build your personal roster of trusted doctors, easily accessible for future bookings and family members.</p>
+                    <p className="text-text-sub">Build your personal roster of trusted doctors, easily accessible for future bookings.</p>
                   </div>
                 </div>
               </div>
@@ -214,7 +214,7 @@ export default function Home() {
         </section>
 
         {/* ── How It Works ───────────────────────────────────────── */}
-        <section className="py-24 bg-gradient-to-b from-section-teal to-card">
+        <section className="py-24 bg-gradient-to-b from-section-teal to-card" id="how-it-works">
           <div className="max-w-7xl mx-auto px-6">
             <div className="text-center mb-16">
               <h2 className="text-3xl md:text-4xl font-black mb-4">How CareFind Works</h2>

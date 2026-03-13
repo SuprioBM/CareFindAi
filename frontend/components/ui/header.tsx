@@ -6,9 +6,9 @@ import { useAuth } from "@/authContext/authContext";
 
 const navLinks = [
   { name: "Home", href: "/" },
-  { name: "Features", href: "/features" },
-  { name: "How It Works", href: "/how-it-works" },
-  { name: "Doctors", href: "/doctors" },
+  { name: "Features", href: "#features" },
+  { name: "How It Works", href: "#how-it-works" },
+  { name: "Doctors", href: "/find_nearby_doctors" },
 ];
 
 export default function Header() {

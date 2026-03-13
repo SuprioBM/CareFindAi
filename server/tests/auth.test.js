@@ -65,7 +65,7 @@ jest.unstable_mockModule("../middleware/sendEmail.js", () => ({
 // }));
 
 const { default: app } = await import("../app.js");
-const { default: User } = await import("../models/User.js");
+const { default: User } = await import("../models/User.model.js");
 
 beforeAll(async () => {
   await connectTestMongo();
@@ -89,21 +89,21 @@ function getCookie(res, cookieName) {
 
 async function registerUser({ name, email, password }) {
   return request(app)
-    .post("/api/auth/register")
+    .post("/api/v1/auth/register")
     .send({ name, email, password });
 }
 
 async function verifyEmail({ email, code }) {
-  return request(app).post("/api/auth/verify-email").send({ email, code });
+  return request(app).post("/api/v1/auth/verify-email").send({ email, code });
 }
 
 async function loginUser({ email, password, agent }) {
   const r = agent ? agent : request(app);
-  return r.post("/api/auth/login").send({ email, password });
+  return r.post("/api/v1/auth/login").send({ email, password });
 }
 
 describe("Auth API (updated)", () => {
-  test("POST /api/auth/register -> 201 + sends OTP (no userId now)", async () => {
+  test("POST /api/v1/auth/register -> 201 + sends OTP (no userId now)", async () => {
     const res = await registerUser({
       name: "Suprio",
       email: "suprio@test.com",
@@ -127,7 +127,7 @@ describe("Auth API (updated)", () => {
     expect(u.emailVerifyCodeHash).toBeTruthy();
   });
 
-  test("POST /api/auth/login -> blocked until verified (403 EMAIL_NOT_VERIFIED)", async () => {
+  test("POST /api/v1/auth/login -> blocked until verified (403 EMAIL_NOT_VERIFIED)", async () => {
     await registerUser({
       name: "Login",
       email: "login@test.com",
@@ -143,7 +143,7 @@ describe("Auth API (updated)", () => {
     expect(res.body).toHaveProperty("code", "EMAIL_NOT_VERIFIED");
   });
 
-  test("POST /api/auth/verify-email -> verifies OTP, then login works", async () => {
+  test("POST /api/v1/auth/verify-email -> verifies OTP, then login works", async () => {
     await registerUser({
       name: "Me",
       email: "me@test.com",
@@ -171,12 +171,12 @@ describe("Auth API (updated)", () => {
     expect(getCookie(loginRes, "refresh_token")).toBeTruthy();
   });
 
-  test("GET /api/auth/me requires token -> 401", async () => {
-    const res = await request(app).get("/api/auth/me");
+  test("GET /api/v1/auth/me requires token -> 401", async () => {
+    const res = await request(app).get("/api/v1/auth/me");
     expect(res.statusCode).toBe(401);
   });
 
-  test("GET /api/auth/me works with Bearer token", async () => {
+  test("GET /api/v1/auth/me works with Bearer token", async () => {
     await registerUser({
       name: "Me2",
       email: "me2@test.com",
@@ -196,14 +196,14 @@ describe("Auth API (updated)", () => {
     const token = loginRes.body.accessToken;
 
     const meRes = await request(app)
-      .get("/api/auth/me")
+      .get("/api/v1/auth/me")
       .set("Authorization", `Bearer ${token}`);
 
     expect(meRes.statusCode).toBe(200);
     expect(meRes.body).toHaveProperty("email", "me2@test.com");
   });
 
-  test("POST /api/auth/refresh -> returns new accessToken and sets cookie (agent)", async () => {
+  test("POST /api/v1/auth/refresh -> returns new accessToken and sets cookie (agent)", async () => {
     const agent = request.agent(app);
 
     await registerUser({
@@ -226,13 +226,13 @@ describe("Auth API (updated)", () => {
     expect(loginRes.statusCode).toBe(200);
     expect(getCookie(loginRes, "refresh_token")).toBeTruthy();
 
-    const refreshRes = await agent.post("/api/auth/refresh").send();
+    const refreshRes = await agent.post("/api/v1/auth/refresh").send();
     expect(refreshRes.statusCode).toBe(200);
     expect(refreshRes.body).toHaveProperty("accessToken");
     expect(getCookie(refreshRes, "refresh_token")).toBeTruthy();
   });
 
-  test("POST /api/auth/logout -> 200 (agent)", async () => {
+  test("POST /api/v1/auth/logout -> 200 (agent)", async () => {
     const agent = request.agent(app);
 
     await registerUser({
@@ -254,11 +254,11 @@ describe("Auth API (updated)", () => {
 
     expect(loginRes.statusCode).toBe(200);
 
-    const logoutRes = await agent.post("/api/auth/logout").send();
+    const logoutRes = await agent.post("/api/v1/auth/logout").send();
     expect(logoutRes.statusCode).toBe(200);
   });
 
-  test("POST /api/auth/resend-verification -> sends a new OTP", async () => {
+  test("POST /api/v1/auth/resend-verification -> sends a new OTP", async () => {
     await registerUser({
       name: "Resend",
       email: "resend@test.com",
@@ -270,7 +270,7 @@ describe("Auth API (updated)", () => {
 
     // Resend
     const resendRes = await request(app)
-      .post("/api/auth/resend-verification")
+      .post("/api/v1/auth/resend-verification")
       .send({ email: "resend@test.com" });
 
     expect([200, 429]).toContain(resendRes.statusCode);
@@ -282,49 +282,57 @@ describe("Auth API (updated)", () => {
     }
   });
 
-  test("Password reset flow: forgot-password -> reset-password -> must login with new password", async () => {
-    const email = "reset@test.com";
-    const oldPass = "oldpass123";
-    const newPass = "newpass456";
+  test("Password reset flow: forgot-password -> verify-reset-code -> reset-password -> login with new password", async () => {
+  const email = "reset@test.com";
+  const oldPass = "oldpass123";
+  const newPass = "newpass456";
 
-    await registerUser({
-      name: "Reset",
-      email,
-      password: oldPass,
-    });
-
-    await verifyEmail({ email, code: String(lastVerifyCode) });
-
-    // Request reset
-    const forgotRes = await request(app)
-      .post("/api/auth/forgot-password")
-      .send({ email });
-
-    expect(forgotRes.statusCode).toBe(200);
-    expect(lastResetCode).toBeTruthy();
-
-    // Reset password using code
-    const resetRes = await request(app)
-      .post("/api/auth/reset-password")
-      .send({
-        email,
-        code: String(lastResetCode),
-        password: newPass,
-      });
-
-    expect(resetRes.statusCode).toBe(200);
-
-    // Old password should fail
-    const oldLoginRes = await loginUser({ email, password: oldPass });
-    expect(oldLoginRes.statusCode).toBe(401);
-
-    // New password should succeed
-    const newLoginRes = await loginUser({ email, password: newPass });
-    expect(newLoginRes.statusCode).toBe(200);
-    expect(newLoginRes.body).toHaveProperty("accessToken");
-    expect(getCookie(newLoginRes, "refresh_token")).toBeTruthy();
+  await registerUser({
+    name: "Reset",
+    email,
+    password: oldPass,
   });
 
+  await verifyEmail({ email, code: String(lastVerifyCode) });
+
+  // 1) Request reset
+  const forgotRes = await request(app)
+    .post("/api/v1/auth/forgot-password")
+    .send({ email });
+
+  expect(forgotRes.statusCode).toBe(200);
+  expect(lastResetCode).toBeTruthy();
+
+  // 2) Verify reset code
+  const verifyResetRes = await request(app)
+    .post("/api/v1/auth/verify-reset-code")
+    .send({
+      email,
+      code: String(lastResetCode),
+    });
+
+  expect(verifyResetRes.statusCode).toBe(200);
+
+  // 3) Reset password after code verification
+  const resetRes = await request(app)
+    .post("/api/v1/auth/reset-password")
+    .send({
+      email,
+      password: newPass,
+    });
+
+  expect(resetRes.statusCode).toBe(200);
+
+  // Old password should fail
+  const oldLoginRes = await loginUser({ email, password: oldPass });
+  expect(oldLoginRes.statusCode).toBe(401);
+
+  // New password should work
+  const newLoginRes = await loginUser({ email, password: newPass });
+  expect(newLoginRes.statusCode).toBe(200);
+  expect(newLoginRes.body).toHaveProperty("accessToken");
+  expect(getCookie(newLoginRes, "refresh_token")).toBeTruthy();
+});
   test("Session management: GET /sessions + revoke all", async () => {
     const email = "sess@test.com";
     const pass = "123456";
@@ -338,7 +346,7 @@ describe("Auth API (updated)", () => {
 
     // List sessions
     const listRes = await request(app)
-      .get("/api/auth/sessions")
+      .get("/api/v1/auth/sessions")
       .set("Authorization", `Bearer ${token}`);
 
     expect(listRes.statusCode).toBe(200);
@@ -347,7 +355,7 @@ describe("Auth API (updated)", () => {
 
     // Revoke all
     const revokeAllRes = await request(app)
-      .delete("/api/auth/sessions")
+      .delete("/api/v1/auth/sessions")
       .set("Authorization", `Bearer ${token}`);
 
     expect(revokeAllRes.statusCode).toBe(200);
