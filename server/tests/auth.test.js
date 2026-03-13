@@ -54,6 +54,22 @@ jest.unstable_mockModule("../middleware/sendEmail.js", () => ({
   },
 }));
 
+jest.unstable_mockModule("../modules/ai/ai.openRouter.js", () => ({
+  callOpenRouter: jest.fn(async () => "mocked ai response"),
+  safeJsonParse: jest.fn((text) => {
+    try {
+      return JSON.parse(text);
+    } catch {
+      return {};
+    }
+  }),
+}));
+
+jest.unstable_mockModule("../modules/ai/ai.retrival.js", () => ({
+  queryMedicalContext: jest.fn(async () => []),
+  buildContextText: jest.fn(() => ""),
+}));
+
 /**
  * Optional:
  * If you implemented Google OAuth controller already and it imports google client,

@@ -1,14 +1,16 @@
 import "dotenv/config";
 
-const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
-const OPENROUTER_BASE_URL =
-  process.env.OPENROUTER_BASE_URL || "https://openrouter.ai/api/v1";
+function requireOpenRouterConfig() {
+  const apiKey = process.env.OPENROUTER_API_KEY;
+  const baseUrl =
+    process.env.OPENROUTER_BASE_URL || "https://openrouter.ai/api/v1";
 
-if (!OPENROUTER_API_KEY) {
-  throw new Error("Missing OPENROUTER_API_KEY in .env");
+  if (!apiKey) {
+    throw new Error("Missing OPENROUTER_API_KEY in environment");
+  }
+
+  return { apiKey, baseUrl };
 }
-
-
 
 function extractErrorMessage(payloadText) {
   try {
@@ -78,15 +80,16 @@ export async function callOpenRouter({
   reasoning,
   retries = 2,
 }) {
+  const { apiKey, baseUrl } = requireOpenRouterConfig();
   let lastError;
 
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
-      const res = await fetch(`${OPENROUTER_BASE_URL}/chat/completions`, {
+      const res = await fetch(`${baseUrl}/chat/completions`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+          Authorization: `Bearer ${apiKey}`,
           "HTTP-Referer": "http://localhost:3000",
           "X-OpenRouter-Title": "CareFind",
         },
@@ -103,34 +106,24 @@ export async function callOpenRouter({
 
       if (!res.ok) {
         const errText = await res.text();
-        throw new Error(`OpenRouter failed: ${res.status} ${extractErrorMessage(errText)}`);
+
+        if (attempt < retries && isRetryableOpenRouterError(res.status, errText)) {
+          continue;
+        }
+
+        throw new Error(
+          `OpenRouter failed: ${res.status} ${extractErrorMessage(errText)}`
+        );
       }
 
       const json = await res.json();
       console.log("OpenRouter raw response:", JSON.stringify(json, null, 2));
 
-      const choice = json?.choices?.[0];
-      const message = choice?.message;
-
-      if (typeof message?.content === "string" && message.content.trim()) {
-        return message.content.trim();
-      }
-
-      if (Array.isArray(message?.content)) {
-        const text = message.content
-          .map((part) => {
-            if (typeof part === "string") return part;
-            if (part?.type === "text" && typeof part.text === "string") return part.text;
-            return "";
-          })
-          .join("")
-          .trim();
-
-        if (text) return text;
-      }
+      const text = extractTextFromOpenRouterResponse(json);
+      if (text) return text;
 
       throw new Error(
-        `OpenRouter returned no usable content. finish_reason=${choice?.finish_reason}; model=${json?.model}`
+        `OpenRouter returned no usable content. finish_reason=${json?.choices?.[0]?.finish_reason}; model=${json?.model}`
       );
     } catch (error) {
       lastError = error;
@@ -147,7 +140,6 @@ export function safeJsonParse(text) {
   }
 
   let cleaned = text.trim();
-
   cleaned = cleaned.replace(/```json\s*/gi, "").replace(/```/g, "").trim();
 
   try {

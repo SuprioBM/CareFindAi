@@ -1,26 +1,42 @@
 import "dotenv/config";
 import { QdrantClient } from "@qdrant/js-client-rest";
 
-const COLLECTION_NAME = process.env.QDRANT_COLLECTION || "carefind_medical_kb";
-const QDRANT_URL = process.env.QDRANT_URL;
-const QDRANT_API_KEY = process.env.QDRANT_API_KEY;
-const JINA_API_KEY = process.env.JINA_API_KEY;
+function requireRetrievalConfig() {
+  const collectionName =
+    process.env.QDRANT_COLLECTION || "carefind_medical_kb";
+  const qdrantUrl = process.env.QDRANT_URL;
+  const qdrantApiKey = process.env.QDRANT_API_KEY;
+  const jinaApiKey = process.env.JINA_API_KEY;
 
-if (!QDRANT_URL) throw new Error("Missing QDRANT_URL in .env");
-if (!QDRANT_API_KEY) throw new Error("Missing QDRANT_API_KEY in .env");
-if (!JINA_API_KEY) throw new Error("Missing JINA_API_KEY in .env");
+  if (!qdrantUrl) throw new Error("Missing QDRANT_URL in environment");
+  if (!qdrantApiKey) throw new Error("Missing QDRANT_API_KEY in environment");
+  if (!jinaApiKey) throw new Error("Missing JINA_API_KEY in environment");
 
-const qdrant = new QdrantClient({
-  url: QDRANT_URL,
-  apiKey: QDRANT_API_KEY,
-});
+  return {
+    collectionName,
+    qdrantUrl,
+    qdrantApiKey,
+    jinaApiKey,
+  };
+}
+
+function createQdrantClient() {
+  const { qdrantUrl, qdrantApiKey } = requireRetrievalConfig();
+
+  return new QdrantClient({
+    url: qdrantUrl,
+    apiKey: qdrantApiKey,
+  });
+}
 
 async function embedTextWithJina(text) {
+  const { jinaApiKey } = requireRetrievalConfig();
+
   const res = await fetch("https://api.jina.ai/v1/embeddings", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${JINA_API_KEY}`,
+      Authorization: `Bearer ${jinaApiKey}`,
     },
     body: JSON.stringify({
       model: "jina-embeddings-v2-base-en",
@@ -43,9 +59,11 @@ async function embedTextWithJina(text) {
 }
 
 export async function queryMedicalContext(userText, limit = 5) {
+  const { collectionName } = requireRetrievalConfig();
+  const qdrant = createQdrantClient();
   const vector = await embedTextWithJina(userText);
 
-  const result = await qdrant.query(COLLECTION_NAME, {
+  const result = await qdrant.query(collectionName, {
     query: vector,
     limit,
     with_payload: true,

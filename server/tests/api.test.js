@@ -11,14 +11,19 @@ jest.unstable_mockModule("../config/redis.js", () => ({
 }));
 
 jest.unstable_mockModule("../modules/ai/ai.openRouter.js", () => ({
-  generateOpenRouterResponse: jest.fn(),
-  default: {},
+  callOpenRouter: jest.fn(async () => "mocked ai response"),
+  safeJsonParse: jest.fn((text) => {
+    try {
+      return JSON.parse(text);
+    } catch {
+      return {};
+    }
+  }),
 }));
 
-jest.unstable_mockModule("../modules/ai/ai.retrieval.js", () => ({
-  retrieveRelevantDocs: jest.fn(async () => []),
-  searchQdrant: jest.fn(async () => []),
-  default: {},
+jest.unstable_mockModule("../modules/ai/ai.retrival.js", () => ({
+  queryMedicalContext: jest.fn(async () => []),
+  buildContextText: jest.fn(() => ""),
 }));
 
 const { default: app } = await import("../app.js");
