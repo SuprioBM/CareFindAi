@@ -21,7 +21,7 @@ jest.unstable_mockModule("../modules/ai/ai.openRouter.js", () => ({
   }),
 }));
 
-jest.unstable_mockModule("../modules/ai/ai.retrival.js", () => ({
+jest.unstable_mockModule("../modules/ai/ai.retrieval.js", () => ({
   queryMedicalContext: jest.fn(async () => []),
   buildContextText: jest.fn(() => ""),
 }));
