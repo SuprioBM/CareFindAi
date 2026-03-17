@@ -3,8 +3,8 @@ import { Inter } from "next/font/google";
 import { ThemeProvider } from "../components/Themes/ThemeProvider";
 import "./globals.css";
 import { AuthProvider } from "@/authContext/authContext";
-import Header from "@/components/ui/header";
-import Footer from "@/components/ui/footer";
+import Header from "@/components/pageComponents/header";
+import Footer from "@/components/pageComponents/footer";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -33,11 +33,11 @@ export default function RootLayout({
       </head>
       <body className={`${inter.variable} antialiased`}>
 
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
           <AuthProvider>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
           {children}
-          </AuthProvider>
         </ThemeProvider>
+          </AuthProvider>
       </body>
     </html>
   );

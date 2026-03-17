@@ -16,6 +16,7 @@ import {
   revokeSession,
   revokeAllSessions,
 } from "../middleware/sessionController.js";
+import { requireAdmin } from "../middleware/authGuards.js";
 
 const router = express.Router();
 
@@ -42,6 +43,11 @@ router.post("/refresh", originGuard, arcjetProtect({ requested: 1 }), refresh);
 router.get("/me", protect, (req, res) => {
   
   res.json({ userID: req.user.id, email: req.user.email, name: req.user.name });
+});
+
+router.get("/admin",protect,requireAdmin,(req, res) => {
+  
+  res.json({success:true, userID: req.user.id, email: req.user.email, name: req.user.name, role: req.user.role });
 });
 
 router.post(

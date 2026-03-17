@@ -1,11 +1,13 @@
 import { runInitialCheck } from "./ai.initialCheck.js";
-import { runGatekeeperAI } from "./ai.gateKeeper.js";
+import { runQueryNormalizer } from "./ai.queryNormalizer.js";
 import { queryMedicalContext, buildContextText } from "./ai.retrieval.js";
 import { runMainAI } from "./ai.mainAI.js";
 import { runBackendCheck } from "./ai.backendCheck.js";
 
 export async function analyzeSymptomsFlow(body) {
   const checked = runInitialCheck(body);
+  console.log(checked);
+  
 
   if (!checked.ok) {
     return {
@@ -16,30 +18,38 @@ export async function analyzeSymptomsFlow(body) {
     };
   }
 
-  const { symptoms, language } = checked.data;
-  console.log(symptoms,language);
-  
+  const {
+    originalSymptoms,
+    symptoms,
+    inputLanguage,
+  } = checked.data;
 
-  const gatekeeper = await runGatekeeperAI(symptoms);
-  console.log(gatekeeper);
-  
+  console.log("Initial check:", {
+    originalSymptoms,
+    symptoms,
+    inputLanguage,
+  });
 
-  if (!gatekeeper.allowed) {
+  const normalized = await runQueryNormalizer({
+    symptoms,
+    inputLanguage,
+  });
+
+  console.log("Query normalizer:", normalized);
+
+  if (!normalized.isMedical) {
     return {
       success: false,
-      stage: "gatekeeper",
+      stage: "query_normalizer",
       status: 400,
       message:
         "Please enter symptoms or a health-related concern so I can recommend the right specialist.",
-      debug: {
-        category: gatekeeper.category,
-        reason: gatekeeper.reason,
-      },
     };
   }
 
-  const queryText = gatekeeper.cleaned_query || symptoms;
-  const matches = await queryMedicalContext(queryText, 5);
+  const queryText = normalized.normalizedQueryEn || symptoms;
+
+  const matches = await queryMedicalContext(queryText, 5, "en");
 
   if (!matches.length) {
     return {
@@ -52,21 +62,29 @@ export async function analyzeSymptomsFlow(body) {
   }
 
   const contextText = buildContextText(matches);
+  console.log(contextText);
+  
 
   const analysis = await runMainAI({
     symptoms,
-    language,
+    originalSymptoms,
+    inputLanguage,
     contextText,
   });
 
   const finalData = runBackendCheck({
     userSymptoms: symptoms,
+    originalSymptoms,
     analysis,
   });
 
   return {
     success: true,
     status: 200,
-    data: finalData,
+    data: {
+      ...finalData,
+      retrievalQuery: queryText,
+      intermediateBangla: normalized.intermediateBangla || "",
+    },
   };
 }

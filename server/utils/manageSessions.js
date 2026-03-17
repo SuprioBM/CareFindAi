@@ -16,6 +16,7 @@ export async function issueSession(req, res, user) {
     sid,
     name: user.name,
     email: user.email,
+    role: user.role,
     ip: req.ip,
     userAgent: req.headers["user-agent"],
     createdAt: Date.now(),
@@ -28,9 +29,10 @@ export async function issueSession(req, res, user) {
 
   await redis.set(`sid:${sid}`, refreshToken, { EX: REFRESH_EXP });
   await redis.sAdd(`userSessions:${user._id.toString()}`, sid);
+  
 
   const accessToken = jwt.sign(
-    { id: user._id.toString(), email: user.email, name: user.name },
+    { id: user._id.toString(), email: user.email, name: user.name, role: user.role },
     process.env.JWT_SECRET,
     { expiresIn: ACCESS_EXP },
   );
@@ -45,7 +47,7 @@ export async function issueSession(req, res, user) {
 
   return {
     accessToken,
-    user: { id: user._id.toString(), name: user.name, email: user.email, isVerified: user.emailVerified },
+    user: { id: user._id.toString(), name: user.name, email: user.email, isVerified: user.emailVerified},
   };
 }
 

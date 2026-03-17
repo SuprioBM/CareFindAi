@@ -15,6 +15,8 @@ const userSchema = new Schema(
     // ✅ single password field (null allowed for Google users)
     password: { type: String, default: null },
 
+    role:{ type: String, enum: ["user", "admin"], default: "user" },
+
     // provider linking
     googleSub: { type: String, default: null, index: true, sparse: true },
     authProvider: { type: String, default: "local" }, // "local" | "google"
