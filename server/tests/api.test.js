@@ -10,16 +10,7 @@ jest.unstable_mockModule("../config/redis.js", () => ({
   default: () => mockRedis, // if any default import remains
 }));
 
-jest.unstable_mockModule("../modules/ai/ai.openRouter.js", () => ({
-  callOpenRouter: jest.fn(async () => "mocked ai response"),
-  safeJsonParse: jest.fn((text) => {
-    try {
-      return JSON.parse(text);
-    } catch {
-      return {};
-    }
-  }),
-}));
+
 
 jest.unstable_mockModule("../modules/ai/ai.retrieval.js", () => ({
   queryMedicalContext: jest.fn(async () => []),
