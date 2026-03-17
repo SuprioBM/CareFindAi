@@ -1,6 +1,6 @@
-# CareFind AI
+# CareFind
 
-CareFind AI is a full-stack healthcare discovery application that helps users describe symptoms, receive an AI-assisted specialist recommendation, and move toward finding relevant doctors. The repository is split into a Next.js frontend and an Express API backed by MongoDB, Redis, and a retrieval-augmented AI pipeline.
+CareFind is a full-stack healthcare discovery application that helps users describe symptoms, receive an AI-assisted specialist recommendation, and move toward finding relevant doctors. The repository is split into a Next.js frontend and an Express API backed by MongoDB, Redis, and a retrieval-augmented AI pipeline.
 
 ## What the project does
 
