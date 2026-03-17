@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import ThemeToggle from '../../../components/Themes/ThemeToggle';
+import ThemeToggle from '../../../../components/Themes/ThemeToggle';
 
 const workingHours = [
   { day: 'Monday', hours: '9:00 AM - 5:00 PM' },
@@ -22,41 +22,6 @@ const stats = [
 export default function DoctorProfilePage() {
   return (
     <div className="bg-surface text-text-base min-h-screen flex flex-col antialiased">
-
-      {/* ── Header ── */}
-      <header className="flex items-center justify-between border-b border-border px-10 py-3 bg-surface sticky top-0 z-50">
-        <div className="flex items-center gap-8">
-          <div className="flex items-center gap-4 text-primary">
-            <span className="material-symbols-outlined text-2xl">medical_services</span>
-            <h2 className="text-lg font-bold tracking-tight text-text-base">CareFind</h2>
-          </div>
-          <div className="hidden md:flex items-stretch rounded-xl h-10 min-w-40 max-w-64 bg-card border border-border focus-within:border-primary transition-colors">
-            <div className="text-text-muted flex items-center justify-center pl-4 rounded-l-xl">
-              <span className="material-symbols-outlined text-xl">search</span>
-            </div>
-            <input
-              className="flex w-full min-w-0 flex-1 rounded-xl bg-transparent text-text-base focus:outline-none border-none h-full placeholder:text-text-muted px-3 text-sm"
-              placeholder="Search"
-            />
-          </div>
-        </div>
-        <div className="flex flex-1 justify-end items-center gap-8">
-          <nav className="hidden md:flex items-center gap-6">
-            {[['Find Doctors', '#'], ['Appointments', '#'], ['Messages', '#'], ['Profile', '#']].map(([label, href]) => (
-              <Link key={label} href={href} className="text-text-sub hover:text-primary transition-colors text-sm font-medium">
-                {label}
-              </Link>
-            ))}
-          </nav>
-          <div className="flex items-center gap-3">
-            <ThemeToggle />
-            <div
-              className="w-10 h-10 rounded-full bg-cover bg-center bg-primary/20 border-2 border-border"
-              style={{ backgroundImage: `url('https://lh3.googleusercontent.com/aida-public/AB6AXuBAkm4bbhmikqaQXtRlrXHaIO64IKTPnEytBHO0aCQxlNZKwrprxj2u3opQ6bVI4NTPxkhRPy8WY0GpsyVcIL9YULxeJk2Fg3jYoNF5bmlehYVtnezhOUuLo_WXboNHs8xpKwX_SmMLnfEO7g_pFeJnBrAPqmjhU4W5vw9JLaAdl8jNQJG0Z8-Fw4f6hFCG03XzW9g0ZZBGBcjqUdZRxWdOPjRIn73Dw3i2-utxwb7O8lwaX5X8Tdo0NWoA5gGQh0XB4Zh-dDhePlY')` }}
-            />
-          </div>
-        </div>
-      </header>
 
       <div className="max-w-[960px] mx-auto w-full px-10 py-4 flex-1">
 

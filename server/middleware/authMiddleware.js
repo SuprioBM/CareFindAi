@@ -39,8 +39,8 @@ export async function protect(req, res, next) {
         .status(401)
         .json({ message: "Access token expired or invalid" });
     }
-
-    req.user = { id: decoded.id, email: decoded.email, name: decoded.name };
+    
+    req.user = { id: decoded.id, email: decoded.email, name: decoded.name, role: decoded.role };
     next();
   } catch (err) {
     console.error(err);
@@ -74,7 +74,8 @@ export async function refresh(req, res) {
     }
 
     const session = JSON.parse(sessionStr);
-    const { userID, sid, name, email } = session;
+    const { userID, sid, name, email, role } = session;
+    
 
     // 2) Reuse detection: is this token the CURRENT one for this sid?
     const currentTokenForSid = await redis.get(`sid:${sid}`);
@@ -114,7 +115,7 @@ export async function refresh(req, res) {
     const newRefreshToken = crypto.randomBytes(32).toString("hex");
 
     const newAccessToken = jwt.sign(
-      { id: userID, email, name },
+      { id: userID, email, name, role },
       process.env.JWT_SECRET,
       { expiresIn: ACCESS_EXP },
     );
@@ -125,7 +126,7 @@ export async function refresh(req, res) {
     // new token session
     multi.set(
       `sess:${newRefreshToken}`,
-      JSON.stringify({ userID, sid, name, email }),
+      JSON.stringify({ userID, sid, name, email,role }),
       { EX: REFRESH_EXP },
     );
 

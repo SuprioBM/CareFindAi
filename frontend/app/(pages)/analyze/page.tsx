@@ -1,19 +1,14 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import ThemeToggle from '../../../components/Themes/ThemeToggle';
 import { apiFetch } from '@/lib/api';
-import { AnalysisResponse, NearbyDoctorsResponse } from '@/types/types';
-
+import { AnalysisResponse } from '@/types/types';
+import SymptomAnalysisResult from '@/components/pageComponents/SymptomAnalysisResult';
 
 export default function SymptomsPage() {
-  const router = useRouter();
 
   const [symptoms, setSymptoms] = useState('');
   const [loading, setLoading] = useState(false);
-  const [findingDoctors, setFindingDoctors] = useState(false);
   const [analysis, setAnalysis] = useState<AnalysisResponse | null>(null);
   const [error, setError] = useState('');
 
@@ -69,154 +64,8 @@ export default function SymptomsPage() {
     setError('');
   }
 
-  function getCurrentPosition(): Promise<GeolocationPosition> {
-    return new Promise((resolve, reject) => {
-      if (!navigator.geolocation) {
-        reject(new Error('Geolocation is not supported by your browser.'));
-        return;
-      }
-
-      navigator.geolocation.getCurrentPosition(resolve, reject, {
-        enableHighAccuracy: true,
-        timeout: 15000,
-        maximumAge: 0,
-      });
-    });
-  }
-
-  async function handleFindNearbySpecialist() {
-    try {
-      if (!analysis?.specialist?.trim()) {
-        setError('No recommended specialist found yet.');
-        return;
-      }
-
-      setFindingDoctors(true);
-      setError('');
-
-      const position = await getCurrentPosition();
-
-      const latitude = position.coords.latitude;
-      const longitude = position.coords.longitude;
-
-      const params = new URLSearchParams({
-        latitude: String(latitude),
-        longitude: String(longitude),
-        radius: '20',
-        specializationName: analysis.specialist.trim(),
-      });
-
-      const res = await apiFetch(`/doctors/nearby/search?${params.toString()}`, {
-        method: 'GET',
-      });
-
-      const rawText = await res.text();
-
-      let parsed: NearbyDoctorsResponse | null = null;
-
-      try {
-        parsed = rawText ? JSON.parse(rawText) : null;
-      } catch (parseError) {
-        console.error('Nearby doctors JSON parse error:', parseError);
-        throw new Error('Frontend could not parse nearby doctors response.');
-      }
-
-      if (!res.ok) {
-        throw new Error(parsed?.message || 'Failed to fetch nearby doctors.');
-      }
-
-      const nearbyDoctorsData = parsed;
-
-      sessionStorage.setItem(
-        'carefind_nearby_doctors',
-        JSON.stringify({
-          userLocation: {
-            latitude,
-            longitude,
-          },
-          specialization: nearbyDoctorsData?.specialization ?? null,
-          doctors: nearbyDoctorsData?.data ?? [],
-          fromSymptomsPage: true,
-          searchedSymptoms: symptoms,
-        })
-      );
-
-      router.push('/map');
-    } catch (err: any) {
-      console.error('Find nearby specialist error:', err);
-
-      if (err?.code === 1) {
-        setError('Location permission was denied. Please allow location access.');
-      } else if (err?.code === 2) {
-        setError('Could not detect your location. Please try again.');
-      } else if (err?.code === 3) {
-        setError('Location request timed out. Please try again.');
-      } else {
-        setError(err?.message || 'Failed to find nearby doctors.');
-      }
-    } finally {
-      setFindingDoctors(false);
-    }
-  }
-
-  const urgencyTone =
-    analysis?.urgency === 'high'
-      ? 'border-red-500/20 bg-red-500/10 text-red-500'
-      : analysis?.urgency === 'medium'
-      ? 'border-amber-500/20 bg-amber-500/10 text-amber-600 dark:text-amber-400'
-      : 'border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400';
-
   return (
     <div className="bg-surface text-text-base min-h-screen">
-      <header className="flex items-center justify-between border-b border-primary/20 px-10 py-3 bg-surface sticky top-0 z-50">
-        <div className="flex items-center gap-4">
-          <span className="material-symbols-outlined text-primary text-2xl">
-            health_and_safety
-          </span>
-          <h2 className="text-lg font-bold tracking-tight">CareFind</h2>
-        </div>
-
-        <div className="flex flex-1 justify-end items-center gap-8">
-          <nav className="hidden md:flex items-center gap-6">
-            {[
-              ['Home', '/'],
-              ['Doctors', '#'],
-              ['Appointments', '#'],
-              ['Records', '#'],
-            ].map(([label, href]) => (
-              <Link
-                key={label}
-                href={href}
-                className="text-sm font-medium text-text-sub hover:text-primary transition-colors"
-              >
-                {label}
-              </Link>
-            ))}
-          </nav>
-
-          <div className="flex gap-2 items-center">
-            <ThemeToggle />
-
-            <Link
-              href="/login"
-              className="flex min-w-[84px] cursor-pointer items-center justify-center rounded-xl h-10 px-4 bg-primary hover:bg-primary-hover text-white text-sm font-bold transition-colors"
-            >
-              Sign In
-            </Link>
-
-            <button className="flex cursor-pointer items-center justify-center rounded-xl h-10 bg-primary/10 hover:bg-primary/20 text-primary w-10 transition-colors">
-              <span className="material-symbols-outlined text-xl">
-                notifications
-              </span>
-            </button>
-
-            <button className="flex cursor-pointer items-center justify-center rounded-xl h-10 bg-primary/10 hover:bg-primary/20 text-primary w-10 transition-colors">
-              <span className="material-symbols-outlined text-xl">person</span>
-            </button>
-          </div>
-        </div>
-      </header>
-
       <div className="max-w-[960px] mx-auto px-4 py-6">
         <div className="flex flex-wrap justify-between gap-3 px-4 py-6">
           <div className="flex min-w-72 flex-col gap-3">
@@ -260,7 +109,7 @@ export default function SymptomsPage() {
         <div className="flex flex-1 gap-4 flex-wrap px-4 py-3 mb-8">
           <button
             onClick={analyzeSymptoms}
-            disabled={loading || findingDoctors}
+            disabled={loading}
             className="flex min-w-[120px] cursor-pointer items-center justify-center rounded-xl h-12 px-6 bg-primary hover:bg-primary-hover disabled:opacity-70 disabled:cursor-not-allowed text-white text-base font-bold shadow-lg shadow-primary/30 transition-all hover:scale-[1.02]"
           >
             <span className="material-symbols-outlined mr-2">
@@ -272,130 +121,18 @@ export default function SymptomsPage() {
           <button
             type="button"
             onClick={clearAll}
-            disabled={loading || findingDoctors}
+            disabled={loading}
             className="flex min-w-[100px] cursor-pointer items-center justify-center rounded-xl h-12 px-6 bg-primary/10 hover:bg-primary/20 disabled:opacity-70 disabled:cursor-not-allowed text-text-sub text-base font-bold transition-colors"
           >
             Clear
           </button>
         </div>
 
-        {loading && (
-          <div className="px-4 border-t border-primary/10 pt-8 mt-4">
-            <h2 className="text-[22px] font-bold leading-tight pb-6 flex items-center gap-2">
-              <span className="material-symbols-outlined text-primary">
-                psychology
-              </span>
-              Recommended Specialist
-            </h2>
-
-            <div className="bg-card p-6 rounded-2xl border border-primary/10 shadow-sm animate-pulse">
-              <div className="h-4 w-28 bg-primary/10 rounded mb-4" />
-              <div className="h-8 w-56 bg-primary/10 rounded mb-6" />
-              <div className="h-8 w-24 bg-primary/10 rounded mb-6" />
-              <div className="bg-primary/5 rounded-xl p-4 border border-primary/10 space-y-3">
-                <div className="h-4 w-40 bg-primary/10 rounded" />
-                <div className="h-4 w-full bg-primary/10 rounded" />
-                <div className="h-4 w-[92%] bg-primary/10 rounded" />
-              </div>
-              <div className="h-16 w-full bg-primary/10 rounded-xl mt-5" />
-              <div className="h-11 w-full bg-primary/10 rounded-xl mt-5" />
-            </div>
-          </div>
-        )}
-
-        {!loading && analysis && (
-          <div className="px-4 border-t border-primary/10 pt-8 mt-4">
-            <h2 className="text-[22px] font-bold leading-tight pb-6 flex items-center gap-2">
-              <span className="material-symbols-outlined text-primary">
-                psychology
-              </span>
-              Recommended Specialist
-            </h2>
-
-            <div className="bg-card p-6 rounded-2xl border border-primary/10 shadow-sm flex flex-col gap-6">
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary/70 mb-2">
-                    AI Recommendation
-                  </p>
-
-                  <h3 className="font-bold text-3xl text-primary">
-                    {analysis.specialist || 'No specialist found'}
-                  </h3>
-                </div>
-
-                {analysis.urgency && (
-                  <div
-                    className={`rounded-full border px-4 py-2 text-xs font-bold uppercase tracking-wide ${urgencyTone}`}
-                  >
-                    {analysis.urgency} urgency
-                  </div>
-                )}
-              </div>
-
-              {analysis.matchedSymptoms && analysis.matchedSymptoms.length > 0 && (
-                <div>
-                  <p className="text-sm font-semibold text-text-sub mb-3">
-                    Matched Symptoms
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {analysis.matchedSymptoms.map((symptom, index) => (
-                      <span
-                        key={`${symptom}-${index}`}
-                        className="rounded-full bg-primary/10 text-primary px-3 py-1 text-xs font-semibold border border-primary/10"
-                      >
-                        {symptom}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <div className="bg-primary/5 rounded-xl p-4 border border-primary/10">
-                <div className="flex items-center gap-2 text-primary font-semibold mb-3">
-                  <span className="material-symbols-outlined text-[18px]">
-                    lightbulb
-                  </span>
-                  Why this specialist?
-                </div>
-
-                <p className="text-sm text-text-sub leading-relaxed">
-                  {analysis.explanation || 'No explanation was returned by the backend.'}
-                </p>
-              </div>
-
-              {analysis.warningMessage && (
-                <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-4">
-                  <div className="flex items-start gap-3">
-                    <span className="material-symbols-outlined text-amber-600 dark:text-amber-400">
-                      warning
-                    </span>
-                    <div>
-                      <p className="text-sm font-semibold text-amber-700 dark:text-amber-300 mb-1">
-                        Important Warning
-                      </p>
-                      <p className="text-sm leading-relaxed text-amber-700/90 dark:text-amber-200">
-                        {analysis.warningMessage}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              <button
-                type="button"
-                onClick={handleFindNearbySpecialist}
-                disabled={findingDoctors || !analysis?.specialist}
-                className="flex w-full items-center justify-center rounded-xl h-11 px-5 bg-primary text-white text-sm font-bold hover:bg-primary-hover disabled:opacity-70 disabled:cursor-not-allowed transition-colors shadow-lg shadow-primary/20"
-              >
-                <span className="material-symbols-outlined mr-2 text-[18px]">
-                  {findingDoctors ? 'progress_activity' : 'location_on'}
-                </span>
-                {findingDoctors ? 'Finding Nearby Doctors...' : 'See Nearby Specialist'}
-              </button>
-            </div>
-          </div>
-        )}
+        <SymptomAnalysisResult
+          analysis={analysis}
+          loading={loading}
+          searchedSymptoms={symptoms}
+        />
       </div>
     </div>
   );
