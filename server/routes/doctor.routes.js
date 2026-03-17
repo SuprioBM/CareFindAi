@@ -21,14 +21,16 @@ import {
   getNearbyDoctors,
   manualSearch,
 } from "../controllers/doctor.controller.js";
+import { protect } from "../middleware/authMiddleware.js";
+import { requireAdmin } from "../middleware/authGuards.js";
 
 const router = express.Router();
 
 // Create a new doctor
-router.post("/", createDoctor);
+router.post("/",protect, requireAdmin, createDoctor);
 
 // Get all doctors
-router.get("/", getAllDoctors);
+router.get("/",protect,requireAdmin, getAllDoctors);
 
 // Manual Search
 router.get("/manual/search", manualSearch);
@@ -38,7 +40,7 @@ router.get("/nearby/search", getNearbyDoctors);
 
 // Get, update, or delete a specific doctor by ID
 router.get("/:id", getDoctorById);
-router.patch("/:id", updateDoctor);
-router.delete("/:id", deleteDoctor);
+router.patch("/:id",protect, requireAdmin, updateDoctor);
+router.delete("/:id",protect, requireAdmin, deleteDoctor);
 
 export default router;

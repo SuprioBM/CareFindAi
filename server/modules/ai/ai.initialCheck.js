@@ -1,42 +1,90 @@
 import { z } from "zod";
 
+const ALLOWED_LANGUAGES = ["auto", "en", "bn", "banglish"];
+
 const symptomInputSchema = z.object({
   symptoms: z
     .string()
     .trim()
     .min(5, "Please enter a more detailed symptom description.")
     .max(700, "Symptom description is too long."),
-  language: z.string().optional().default("auto"),
+  language: z
+    .string()
+    .optional()
+    .default("auto")
+    .transform((v) => (v || "auto").toLowerCase())
+    .refine((v) => ALLOWED_LANGUAGES.includes(v), {
+      message: "Language must be one of: auto, en, bn, banglish",
+    }),
 });
 
-function normalizeText(text) {
-  return text.replace(/\s+/g, " ").trim();
+function normalizeWhitespace(text = "") {
+  return String(text).replace(/\s+/g, " ").trim();
 }
 
-function detectLanguage(text) {
-  // Bangla Unicode block
-  if (/[\u0980-\u09FF]/u.test(text)) return "bn";
+function stripTrailingLanguageTag(text = "") {
+  return String(text).replace(/\s+\b(en|bn|banglish)\b$/i, "").trim();
+}
+
+function normalizeText(text = "") {
+  return normalizeWhitespace(stripTrailingLanguageTag(text));
+}
+
+function detectLanguage(text = "") {
+  const cleaned = normalizeText(text);
+  const lower = cleaned.toLowerCase();
+
+  if (/[\u0980-\u09FF]/u.test(cleaned)) return "bn";
+
+  const banglishPatterns = [
+    /\bami\b/,
+    /\bamr\b/,
+    /\bamar\b/,
+    /\bgola(i|y)?\b/,
+    /\bbetha\b/,
+    /\bbyatha\b/,
+    /\bjor\b/,
+    /\bjhor\b/,
+    /\bkashi\b/,
+    /\bmatha\b/,
+    /\bpet\b/,
+    /\bbuk\b/,
+    /\bbomi\b/,
+    /\bshash\b/,
+    /\bshordi\b/,
+    /\bjala\b/,
+    /\boshubidha\b/,
+    /\bkrse\b/,
+    /\bhocche\b/,
+    /\bhoise\b/,
+    /\blagche\b/,
+    /\bashche\b/,
+  ];
+
+  const banglishScore = banglishPatterns.reduce(
+    (count, pattern) => count + (pattern.test(lower) ? 1 : 0),
+    0
+  );
+
+  if (banglishScore >= 1) return "banglish";
+
   return "en";
 }
 
-function looksLikeSpam(text) {
+function looksLikeSpam(text = "") {
   const normalized = normalizeText(text);
   const lower = normalized.toLowerCase();
 
-  if (/^(.)\1{5,}$/u.test(lower)) return true; // aaaaaaa / একই অক্ষর অনেকবার
-  if (/^\d+$/u.test(lower)) return true; // only numbers
-
-  // only symbols / punctuation, but allows letters from Bangla + English + other languages
+  if (!normalized) return true;
+  if (/^(.)\1{5,}$/u.test(lower)) return true;
+  if (/^\d+$/u.test(lower)) return true;
   if (/^[^\p{L}\p{N}\s]+$/u.test(lower)) return true;
-
-  // single very short token like "hi", "??", "ok"
-  if (normalized.split(/\s+/).length === 1 && normalized.length < 3) return true;
 
   return false;
 }
 
-function looksObviouslyNonMedical(text) {
-  const lower = text.toLowerCase();
+function looksObviouslyNonMedical(text = "") {
+  const lower = normalizeText(text).toLowerCase();
 
   const blocked = [
     "write a poem",
@@ -87,14 +135,18 @@ export function runInitialCheck(body) {
     };
   }
 
+  const detectedLanguage =
+    parsed.data.language === "auto"
+      ? detectLanguage(cleanedText)
+      : parsed.data.language;
+
   return {
     ok: true,
     data: {
+      originalSymptoms: parsed.data.symptoms,
       symptoms: cleanedText,
-      language:
-        parsed.data.language === "auto"
-          ? detectLanguage(cleanedText)
-          : parsed.data.language || "auto",
+      inputLanguage: detectedLanguage,
+      responseLanguage: "en",
     },
   };
 }

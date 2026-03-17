@@ -13,15 +13,17 @@ const symptomSearchSchema = new Schema(
       trim: true,
       maxlength: 5000,
     },
-    inputLanguage: {
-      type: String,
-      enum: ["english", "bangla", "banglish", "unknown"],
-      default: "unknown",
-    },
+    
     recommendedSpecialization: {
       type: Schema.Types.ObjectId,
       ref: "Specialization",
-      required: true,
+      default: null,
+    },
+    recommendedSpecializationName: {
+      type: String,
+      trim: true,
+      default: "",
+      maxlength: 120,
     },
     analysisReason: {
       type: String,
@@ -40,39 +42,19 @@ const symptomSearchSchema = new Schema(
       default: "",
       maxlength: 1000,
     },
-    aiProvider: {
+    matchedSymptoms: {
+      type: [String],
+      default: [],
+    },
+    canShowDoctors: {
+      type: Boolean,
+      default: false,
+    },
+    retrievalQuery: {
       type: String,
       trim: true,
       default: "",
-      maxlength: 100,
-    },
-    aiModel: {
-      type: String,
-      trim: true,
-      default: "",
-      maxlength: 100,
-    },
-    aiRawResponse: {
-      type: Schema.Types.Mixed,
-      default: null,
-    },
-    searchLatitude: {
-      type: Number,
-      min: -90,
-      max: 90,
-      default: null,
-    },
-    searchLongitude: {
-      type: Number,
-      min: -180,
-      max: 180,
-      default: null,
-    },
-    searchAddress: {
-      type: String,
-      trim: true,
-      default: "",
-      maxlength: 300,
+      maxlength: 500,
     },
   },
   {

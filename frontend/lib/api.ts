@@ -20,6 +20,8 @@ export async function apiFetch(endpoint: string, options: RequestInit = {}) {
 
   let accessToken: string | null = getAccessToken();
 
+  
+
   const fetchWithToken = async () => {
     const isFormData =
       typeof FormData !== "undefined" && body instanceof FormData;

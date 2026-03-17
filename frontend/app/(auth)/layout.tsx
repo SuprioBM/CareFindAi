@@ -1,5 +1,5 @@
 import AuthBackground from "@/components/Themes/AuthBackground";
-import Header from "@/components/ui/header";
+import Header from "@/components/pageComponents/header";
 
 export const metadata = {
   title: "CareFind — Account",
