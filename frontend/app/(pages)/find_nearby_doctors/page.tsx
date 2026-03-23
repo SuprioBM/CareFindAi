@@ -2,11 +2,31 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import dynamic from 'next/dynamic';
-import ThemeToggle from '../../../components/Themes/ThemeToggle';
 
 // ── Types ─────────────────────────────────────────────────────
-interface DoctorTemplate {
-  id: number;
+interface SessionDoctor {
+  _id?: string;
+  id?: string | number;
+  fullName?: string;
+  name?: string;
+  specializationName?: string;
+  specialty?: string;
+  profileImage?: string;
+  latitude?: number;
+  longitude?: number;
+  location?: {
+    type?: string;
+    coordinates?: [number, number];
+  };
+  consultation?: string;
+  appointmentPhone?: string[];
+  appointmentWebsite?: string;
+  fees?: number;
+  distanceKm?: number;
+}
+
+interface Doctor {
+  id: string | number;
   name: string;
   specialty: string;
   rating: number;
@@ -14,90 +34,10 @@ interface DoctorTemplate {
   photo: string;
   insurance: string;
   availability: 'today' | 'tomorrow' | string;
-  latOffset: number;
-  lngOffset: number;
-}
-interface Doctor extends DoctorTemplate {
   lat: number;
   lng: number;
   distanceMiles: number;
 }
-
-// ── Mock data ─────────────────────────────────────────────────
-const DOCTORS_RAW: DoctorTemplate[] = [
-  {
-    id: 1,
-    name: 'Dr. Sarah Chen, MD',
-    specialty: 'Cardiologist',
-    rating: 4.9,
-    reviews: 120,
-    photo: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCu0jWneb5XWqzh_xosVra8RVHeAzJTUKZP0UMb9FL5tLPmypnQrccfFgIL5SE0x_uRkm266kBlSmlCmLFV7s835pnWBARvD9gg4vgpbjQLAG7x_YeGDGJy00U7Gx1ST47c-xeNXqDY6OCk-BJ_QBQ8ALN5eMsMjysJe3mc0AnvElZu088PxkFbns-AGmUsLYkqB_Mo7RNTaMN-w0bgxLmkLoixGFVXXjEJKH4PGdLlaSQ4Y64LcMbd8upH72FbXraOTa2bmQQlFQg',
-    insurance: 'Aetna, Cigna +5',
-    availability: 'today',
-    latOffset:  0.0080,
-    lngOffset: -0.0050,
-  },
-  {
-    id: 2,
-    name: 'Dr. Marcus Johnson, MD',
-    specialty: 'Interventional Cardiologist',
-    rating: 4.8,
-    reviews: 85,
-    photo: 'https://lh3.googleusercontent.com/aida-public/AB6AXuB_RwjpYXFvrcU-wC9fcGDVEbKhw2B3xUE-_ruaL5KqUl_LXqEDTF7VmRHJdw_JTWtTM5mgjoSP3YgGXET4MVajXKuX3TR-VJ3xjZgm4clFISdn982TTlO3TiDOQLYXVFY2Qmrl7Fs25EcWuImN-ktHZhqGumEvwxVcCPPIQDx65UkGUcGoTHVBP5Zd5-nEu5b8W5EzUfcNoWyTiAxe4nsGyvwUFKxNYQpQHObeKpDWoWcurvbmIbbb8wrJeh9tGHnq_3Zzc8pDnng',
-    insurance: 'BlueCross, UHC +3',
-    availability: 'tomorrow',
-    latOffset: -0.0040,
-    lngOffset:  0.0090,
-  },
-  {
-    id: 3,
-    name: 'Dr. Elena Rodriguez, DO',
-    specialty: 'Pediatric Cardiologist',
-    rating: 5.0,
-    reviews: 210,
-    photo: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAPm9lhDklQVmU4FttLTilDXml8bz6Eg_rL_a7-dByXJo1BJzow1UiHIIZQ5vqoVSzJpC10ZZyIBWo3K79--SH9uWRgA84Qp0OJfon5WnSWxTAfEhZXzqGOXuaI7IY0B7ZOPHzSsfvwBeOd7G-sUONR44KITuWIx9LYAHheri2fIfNLiPK59IPJoMSdM5JRTqKc87ndtXceIMcyyJ9PHJpvjtPVI_5NcqqTbppClbNERnRHUbNCBatGhKEfPRa83PpV5GbG9QI',
-    insurance: 'All Major Insurances',
-    availability: 'today',
-    latOffset:  0.0020,
-    lngOffset:  0.0120,
-  },
-  {
-    id: 4,
-    name: 'Dr. James Park, MD',
-    specialty: 'Neurologist',
-    rating: 4.7,
-    reviews: 95,
-    photo: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDO_is0yd9AnwT8j9cc6aloIH3lseaW2Lg_feN9NIAgwPHmpQ_HzEWWTbbCdOxkt7_7OZZOpWHgvS-Cjzn0sDOlHmJZ-XRZQaTw4wyotNhNiODreItEIsekQLlKJdRUUYZNJpgqa_24Ln_0mYsEQjzk9rESngb3mCcFJkJG27PUlIvoQ1WKjZjdoDBWetUdiYZwczftn2uNiIQQyvF7r8r-X6-SyEBoIHe5LmHAHxjTE9JJ4VCLEOVy_MaQ6npCrJmvGOS2wJIoZEQ',
-    insurance: 'Cigna, Aetna +2',
-    availability: 'today',
-    latOffset: -0.0090,
-    lngOffset: -0.0060,
-  },
-  {
-    id: 5,
-    name: 'Dr. Priya Patel, MBBS',
-    specialty: 'Dermatologist',
-    rating: 4.6,
-    reviews: 143,
-    photo: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDNXtVZTyMs6HtHwt0MDHzz1VNhuxWvUw0G69If65UBnHEYpb4ZP1EJO5i7RQbp_OzGfCLhmLvCKNvKeyp8xTEZ61WAyAgMaz_ei99dnMRt2k58s0NcxpG_LtqF0OEZpRzPiBSBj42tNZpnHMqitXTJ_2jbkUMzYRUZA7vmtGMQgcsYM7gvjzv6jEyVee_KpCQl9M_HF4pZ5OZTgJ_lyLmg7MbcORKP_i8yVLE_3fr-p2j3uApsocrXSG-6EYIY-IBsPT1xC_Qbgjk',
-    insurance: 'UHC, Medicare +4',
-    availability: 'Fri, Mar 20',
-    latOffset:  0.0110,
-    lngOffset:  0.0030,
-  },
-  {
-    id: 6,
-    name: 'Dr. Alan Lee, MD',
-    specialty: 'Orthopedic Surgeon',
-    rating: 4.9,
-    reviews: 178,
-    photo: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCbRS4xf1yNh4QZiGTwnPR4FJ7EEQEBrlmJ9GklDvTYg0zxTWfpHaKm9yVQfm-WmgGa7bMrKwVNqN90lZgsVSD3d49O9woeYlGKAVArAVgTNc8tBiTH9o0zbYkKyqsC_gQHZkFNYnW2Qazo-AJBrIpS8thg3peCKugzkG_oweh7HhjyLvyX4-OqCgTc3GAn9NguVeS61DpnziRKQ760YzHOOm6jVHv71bTlLiLaLlwv_GlFx_wj6NzPrAx129oFVCPQf_ZdVncEWds',
-    insurance: 'BlueCross, Aetna +6',
-    availability: 'tomorrow',
-    latOffset: -0.0060,
-    lngOffset:  0.0150,
-  },
-];
 
 // ── Haversine distance (miles) ────────────────────────────────
 function haversineMiles(lat1: number, lon1: number, lat2: number, lon2: number): number {
@@ -112,7 +52,8 @@ function haversineMiles(lat1: number, lon1: number, lat2: number, lon2: number):
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-const DEFAULT_LOCATION: [number, number] = [40.7128, -74.006]; // NYC fallback
+const DEFAULT_LOCATION: [number, number] = [23.8103, 90.4125]; // Dhaka fallback
+const DEFAULT_PHOTO = '/default-doctor.png';
 
 // ── Dynamic Leaflet map (no SSR) ─────────────────────────────
 const DoctorMap = dynamic(() => import('../../../components/Map/map'), {
@@ -128,18 +69,54 @@ const DoctorMap = dynamic(() => import('../../../components/Map/map'), {
 // ── Page ──────────────────────────────────────────────────────
 export default function DoctorDiscoveryPage() {
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
-  const [locLoading, setLocLoading]     = useState(true);
-  const [selectedId, setSelectedId]     = useState<number | null>(1);
-  const [routeToId,   setRouteToId]      = useState<number | null>(null);
-  const [favorites,  setFavorites]      = useState<Set<number>>(new Set([3]));
+  const [locLoading, setLocLoading] = useState(true);
+  const [selectedId, setSelectedId] = useState<string | number | null>(null);
+  const [routeToId, setRouteToId] = useState<string | number | null>(null);
+  const [favorites, setFavorites] = useState<Set<string | number>>(new Set());
+  const [sessionDoctors, setSessionDoctors] = useState<SessionDoctor[]>([]);
+  const [sessionSpecialization, setSessionSpecialization] = useState('');
+  const [sessionLoaded, setSessionLoaded] = useState(false);
 
-  // Request geolocation once on mount
   useEffect(() => {
+    const stored = sessionStorage.getItem('carefind_nearby_doctors');
+
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+
+        if (parsed?.userLocation?.latitude && parsed?.userLocation?.longitude) {
+          setUserLocation([
+            Number(parsed.userLocation.latitude),
+            Number(parsed.userLocation.longitude),
+          ]);
+          setLocLoading(false);
+        }
+
+        if (Array.isArray(parsed?.doctors)) {
+          setSessionDoctors(parsed.doctors);
+        }
+
+        if (parsed?.specialization) {
+          setSessionSpecialization(parsed.specialization);
+        }
+      } catch (error) {
+        console.error('Failed to parse session doctors data:', error);
+      }
+    }
+
+    setSessionLoaded(true);
+  }, []);
+
+  // fallback geolocation only if sessionStorage did not provide location
+  useEffect(() => {
+    if (!sessionLoaded || userLocation) return;
+
     if (!('geolocation' in navigator)) {
       setUserLocation(DEFAULT_LOCATION);
       setLocLoading(false);
       return;
     }
+
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         setUserLocation([pos.coords.latitude, pos.coords.longitude]);
@@ -149,28 +126,66 @@ export default function DoctorDiscoveryPage() {
         setUserLocation(DEFAULT_LOCATION);
         setLocLoading(false);
       },
-      { timeout: 8000, maximumAge: 60_000 },
+      { timeout: 8000, maximumAge: 60_000 }
     );
-  }, []);
+  }, [sessionLoaded, userLocation]);
 
-  // Derive doctor objects with real-ish coordinates near user
   const doctors: Doctor[] = useMemo(() => {
-    const [lat, lng] = userLocation ?? DEFAULT_LOCATION;
-    return DOCTORS_RAW.map((d) => {
-      const dLat = lat + d.latOffset;
-      const dLng = lng + d.lngOffset;
-      return { ...d, lat: dLat, lng: dLng, distanceMiles: haversineMiles(lat, lng, dLat, dLng) };
-    });
-  }, [userLocation]);
+    const [userLat, userLng] = userLocation ?? DEFAULT_LOCATION;
 
-  const toggleFav = (id: number) =>
+    return sessionDoctors
+      .map((doc, index) => {
+        const lat =
+          typeof doc.latitude === 'number'
+            ? doc.latitude
+            : Array.isArray(doc.location?.coordinates)
+            ? Number(doc.location.coordinates[1])
+            : null;
+
+        const lng =
+          typeof doc.longitude === 'number'
+            ? doc.longitude
+            : Array.isArray(doc.location?.coordinates)
+            ? Number(doc.location.coordinates[0])
+            : null;
+
+        if (lat == null || lng == null) return null;
+
+        const distanceMiles =
+          typeof doc.distanceKm === 'number'
+            ? Number((doc.distanceKm * 0.621371).toFixed(2))
+            : Number(haversineMiles(userLat, userLng, lat, lng).toFixed(2));
+
+        return {
+          id: doc._id || doc.id || `doctor-${index + 1}`,
+          name: doc.fullName || doc.name || 'Unknown Doctor',
+          specialty: doc.specializationName || doc.specialty || sessionSpecialization || 'Specialist',
+          rating: 4.8,
+          reviews: 0,
+          photo: doc.profileImage || DEFAULT_PHOTO,
+          insurance: doc.appointmentWebsite ? 'Online Appointment Available' : 'Call for Appointment',
+          availability: doc.consultation || 'Check schedule',
+          lat,
+          lng,
+          distanceMiles,
+        };
+      })
+      .filter((doc): doc is Doctor => doc !== null);
+  }, [sessionDoctors, userLocation, sessionSpecialization]);
+
+  useEffect(() => {
+    if (doctors.length > 0 && selectedId === null) {
+      setSelectedId(doctors[0].id);
+    }
+  }, [doctors, selectedId]);
+
+  const toggleFav = (id: string | number) =>
     setFavorites((prev) => {
       const s = new Set(prev);
       s.has(id) ? s.delete(id) : s.add(id);
       return s;
     });
 
-  // Derive routeTo coords from the routeToId
   const routeToDoctor = doctors.find((d) => d.id === routeToId);
   const routeTo: [number, number] | null = routeToDoctor
     ? [routeToDoctor.lat, routeToDoctor.lng]
@@ -180,14 +195,8 @@ export default function DoctorDiscoveryPage() {
 
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-surface text-text-base">
-
-      {/* ── Split layout ──────────────────────────────────── */}
       <main className="flex flex-1 overflow-hidden">
-
-        {/* ── Left panel — doctor list ── */}
         <div className="flex flex-col w-full lg:w-[620px] xl:w-[680px] shrink-0 border-r border-border bg-card z-10 flex-1 lg:flex-none">
-
-          {/* Filter / stats bar */}
           <div className="p-5 border-b border-border shrink-0">
             <h1 className="text-2xl font-bold text-text-base mb-1">Find a Doctor</h1>
             <p className="text-text-muted text-sm mb-4">
@@ -196,12 +205,14 @@ export default function DoctorDiscoveryPage() {
                 : 'Discover top-rated healthcare professionals near you.'}
             </p>
 
-            {/* Filter chips */}
             <div className="flex flex-wrap gap-2 mb-4">
-              <button className="flex h-8 items-center gap-1 rounded-full border border-primary bg-primary/10 text-primary px-3 text-sm font-medium hover:bg-primary/20 transition-colors">
-                Cardiology
-                <span className="material-symbols-outlined text-[16px]">close</span>
-              </button>
+              {sessionSpecialization ? (
+                <button className="flex h-8 items-center gap-1 rounded-full border border-primary bg-primary/10 text-primary px-3 text-sm font-medium hover:bg-primary/20 transition-colors">
+                  {sessionSpecialization}
+                  <span className="material-symbols-outlined text-[16px]">close</span>
+                </button>
+              ) : null}
+
               {['Specialty', 'Availability', 'Insurance'].map((f) => (
                 <button
                   key={f}
@@ -222,30 +233,40 @@ export default function DoctorDiscoveryPage() {
             </div>
           </div>
 
-          {/* Scrollable cards */}
           <div className="flex-1 overflow-y-auto p-4 space-y-3">
-            {doctors.map((doc) => (
-              <DoctorCard
-                key={doc.id}
-                doc={doc}
-                isSelected={selectedId === doc.id}
-                isFavorited={favorites.has(doc.id)}
-                isRouting={routeToId === doc.id}
-                onSelect={() => { setSelectedId(doc.id); setRouteToId(doc.id); }}
-                onFavorite={() => toggleFav(doc.id)}
-                onGetDirections={() => { setSelectedId(doc.id); setRouteToId(doc.id); }}
-              />
-            ))}
+            {doctors.length > 0 ? (
+              doctors.map((doc) => (
+                <DoctorCard
+                  key={doc.id}
+                  doc={doc}
+                  isSelected={selectedId === doc.id}
+                  isFavorited={favorites.has(doc.id)}
+                  isRouting={routeToId === doc.id}
+                  onSelect={() => {
+                    setSelectedId(doc.id);
+                    setRouteToId(doc.id);
+                  }}
+                  onFavorite={() => toggleFav(doc.id)}
+                  onGetDirections={() => {
+                    setSelectedId(doc.id);
+                    setRouteToId(doc.id);
+                  }}
+                />
+              ))
+            ) : (
+              <div className="rounded-xl border border-border bg-surface p-6 text-sm text-text-muted">
+                No nearby doctors found.
+              </div>
+            )}
           </div>
         </div>
 
-        {/* ── Right panel — Leaflet map ── */}
         <div className="hidden lg:flex flex-1 relative overflow-hidden">
           {userLocation ? (
             <DoctorMap
               userLocation={effectiveLoc}
-              doctors={doctors.map((d) => ({
-                id: d.id,
+              doctors={doctors.map((d, index) => ({
+                id: typeof d.id === 'number' ? d.id : index + 1,
                 name: d.name,
                 specialty: d.specialty,
                 lat: d.lat,
@@ -253,7 +274,10 @@ export default function DoctorDiscoveryPage() {
                 photo: d.photo,
                 isSelected: selectedId === d.id,
               }))}
-              onDoctorClick={(id) => { setSelectedId(id); setRouteToId(id); }}
+              onDoctorClick={(id) => {
+                setSelectedId(id);
+                setRouteToId(id);
+              }}
               routeTo={routeTo}
               onClearRoute={() => setRouteToId(null)}
             />
@@ -282,7 +306,15 @@ interface CardProps {
   onGetDirections: () => void;
 }
 
-function DoctorCard({ doc, isSelected, isFavorited, isRouting, onSelect, onFavorite, onGetDirections }: CardProps) {
+function DoctorCard({
+  doc,
+  isSelected,
+  isFavorited,
+  isRouting,
+  onSelect,
+  onFavorite,
+  onGetDirections,
+}: CardProps) {
   return (
     <div
       onClick={onSelect}
@@ -292,20 +324,17 @@ function DoctorCard({ doc, isSelected, isFavorited, isRouting, onSelect, onFavor
           : 'border-border bg-surface hover:border-primary/50 hover:shadow-sm'
       }`}
     >
-      {/* Accent bar */}
       <div
         className={`absolute top-0 left-0 w-1 h-full bg-primary transition-opacity rounded-l-xl ${
           isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-50'
         }`}
       />
 
-      {/* Photo */}
       <div
         className="rounded-lg w-20 h-20 shrink-0 bg-cover bg-center border border-border"
         style={{ backgroundImage: `url('${doc.photo}')` }}
       />
 
-      {/* Info */}
       <div className="flex flex-col flex-1 min-w-0">
         <div className="flex justify-between items-start mb-1">
           <h2
@@ -316,7 +345,10 @@ function DoctorCard({ doc, isSelected, isFavorited, isRouting, onSelect, onFavor
             {doc.name}
           </h2>
           <button
-            onClick={(e) => { e.stopPropagation(); onFavorite(); }}
+            onClick={(e) => {
+              e.stopPropagation();
+              onFavorite();
+            }}
             className={`transition-colors shrink-0 ${
               isFavorited ? 'text-rose-500' : 'text-text-muted hover:text-rose-500'
             }`}
@@ -355,17 +387,16 @@ function DoctorCard({ doc, isSelected, isFavorited, isRouting, onSelect, onFavor
               Next: {doc.availability === 'tomorrow' ? 'Tomorrow' : doc.availability}
             </span>
           )}
+
           <span className="inline-flex items-center rounded bg-section-teal px-2 py-1 text-xs font-medium text-text-sub border border-border">
             {doc.insurance}
           </span>
 
-          {/* Route indicator — visible when card is selected */}
           {isSelected && (
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                if (isRouting) onGetDirections(); // acts as toggle-off handled by parent
-                else onGetDirections();
+                onGetDirections();
               }}
               className={`hidden lg:inline-flex items-center gap-1 ml-auto rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
                 isRouting

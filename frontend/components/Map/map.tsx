@@ -216,7 +216,7 @@ export default function DoctorMap({ userLocation, doctors, onDoctorClick, routeT
   const routeDocName = selectedDoc?.name ?? 'Doctor';
 
   return (
-    <div style={{ height: '100%', width: '100%', position: 'relative' }}>
+    <div style={{ height: '100%', width: '100%', position: 'relative', zIndex: 0 }}>
     <MapContainer
       center={userLocation}
       zoom={14}
