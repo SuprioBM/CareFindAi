@@ -268,8 +268,8 @@ export default function DoctorManagement({ onNavigate }: Props) {
       setActionLoading(true);
 
       const endpoint = editingDoctor
-        ? `/api/v1/doctors/${editingDoctor._id}`
-        : '/api/v1/doctors';
+        ? `/doctors/${editingDoctor._id}`
+        : '/doctors';
 
       const method = editingDoctor ? 'PATCH' : 'POST';
 
@@ -305,7 +305,7 @@ export default function DoctorManagement({ onNavigate }: Props) {
       setError('');
       setSuccessMessage('');
 
-      const res = await apiFetch(`/api/v1/doctors/${doctorToDelete._id}`, {
+      const res = await apiFetch(`/doctors/${doctorToDelete._id}`, {
         method: 'DELETE',
       });
 

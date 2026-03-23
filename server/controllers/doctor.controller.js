@@ -118,7 +118,7 @@ export async function updateDoctor(req, res) {
       new: true,
       runValidators: true,
     }).populate("specialization");
-
+    
     if (!doctor) {
       return res.status(404).json({
         success: false,
@@ -175,49 +175,46 @@ export async function getNearbyDoctors(req, res) {
   try {
     const { latitude, longitude, radius = 20, specialization } = req.query;
 
-    if (!latitude || !longitude) {
+  console.log(latitude,longitude,specialization);
+  
+
+    const userLat = Number(latitude);
+    const userLng = Number(longitude);
+    const maxRadiusKm = Number(radius);
+
+    if (Number.isNaN(userLat) || Number.isNaN(userLng) || Number.isNaN(maxRadiusKm)) {
       return res.status(400).json({
         success: false,
-        message: "latitude and longitude are required",
+        message: "Valid latitude, longitude, and radius are required",
       });
     }
 
     const filter = {
       isActive: true,
       isApproved: true,
+      location: {
+        $near: {
+          $geometry: {
+            type: "Point",
+            coordinates: [userLng, userLat],
+          },
+          $maxDistance: maxRadiusKm * 1000,
+        },
+      },
     };
 
-    if (specialization) {
-      filter.specialization = specialization;
+    if (specialization?.trim()) {
+      filter.specializationName = specialization.trim();
     }
 
     const doctors = await Doctor.find(filter).populate("specialization");
-
-    const userLat = Number(latitude);
-    const userLng = Number(longitude);
-    const maxRadius = Number(radius);
-
-    const doctorsWithDistance = doctors
-      .map((doctor) => {
-        const distanceKm = getDistanceInKm(
-          userLat,
-          userLng,
-          doctor.latitude,
-          doctor.longitude
-        );
-
-        return {
-          ...doctor.toObject(),
-          distanceKm: Number(distanceKm.toFixed(2)),
-        };
-      })
-      .filter((doctor) => doctor.distanceKm <= maxRadius)
-      .sort((a, b) => a.distanceKm - b.distanceKm);
+    console.log(doctors);
+    
 
     return res.status(200).json({
       success: true,
-      count: doctorsWithDistance.length,
-      data: doctorsWithDistance,
+      count: doctors.length,
+      data: doctors,
     });
   } catch (error) {
     return res.status(500).json({
