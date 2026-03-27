@@ -55,7 +55,7 @@ function haversineMiles(lat1: number, lon1: number, lat2: number, lon2: number):
 const DEFAULT_LOCATION: [number, number] = [23.8103, 90.4125]; // Dhaka fallback
 const DEFAULT_PHOTO = '/default-doctor.png';
 
-// ── Dynamic Leaflet map (no SSR) ─────────────────────────────
+//  Dynamic Leaflet map component with SSR disabled and a custom loading state
 const DoctorMap = dynamic(() => import('../../../components/Map/map'), {
   ssr: false,
   loading: () => (
@@ -66,7 +66,7 @@ const DoctorMap = dynamic(() => import('../../../components/Map/map'), {
   ),
 });
 
-// ── Page ──────────────────────────────────────────────────────
+// Main Page Component for Doctor Discovery
 export default function DoctorDiscoveryPage() {
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
   const [locLoading, setLocLoading] = useState(true);
