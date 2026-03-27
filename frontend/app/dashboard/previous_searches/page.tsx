@@ -1,4 +1,4 @@
-'use client';
+'use client'; // This makes the component run on the client side (Next.js App Router)
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
@@ -9,6 +9,9 @@ import { apiFetch } from '@/lib/api';
 import { AnalysisResponse } from '@/types/types';
 import { useAuth } from '@/authContext/authContext';
 
+/**
+ * Type for a single symptom search item returned from backend
+ */
 type SymptomSearchItem = {
   _id: string;
   symptomsText: string;
@@ -22,6 +25,9 @@ type SymptomSearchItem = {
   createdAt: string;
 };
 
+/**
+ * API response type for fetching searches
+ */
 type SymptomSearchesResponse = {
   success: boolean;
   count: number;
@@ -29,6 +35,9 @@ type SymptomSearchesResponse = {
   message?: string;
 };
 
+/**
+ * Utility: formats ISO date string into readable date & time
+ */
 function formatDateTime(dateString: string) {
   const date = new Date(dateString);
 
@@ -45,6 +54,9 @@ function formatDateTime(dateString: string) {
   };
 }
 
+/**
+ * Utility: maps specialist name to a material icon
+ */
 function getIconFromSpecialist(name: string) {
   const lower = name.toLowerCase();
 
@@ -59,9 +71,12 @@ function getIconFromSpecialist(name: string) {
   if (lower.includes('pedia')) return 'pediatrics';
   if (lower.includes('eye') || lower.includes('ophthal')) return 'visibility';
 
-  return 'medical_services';
+  return 'medical_services'; // default icon
 }
 
+/**
+ * Utility: determines accent color based on urgency level
+ */
 function getAccentFromUrgency(
   urgency: 'low' | 'medium' | 'high' | 'emergency'
 ): 'primary' | 'blue' {
@@ -70,23 +85,35 @@ function getAccentFromUrgency(
     : 'primary';
 }
 
+/**
+ * Main Component: Previous Searches Page
+ */
 export default function PreviousSearchesPage() {
+  // ---------------- STATE ----------------
   const [searches, setSearches] = useState<SymptomSearchItem[]>([]);
   const [selectedSearch, setSelectedSearch] = useState<SymptomSearchItem | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [page, setPage] = useState(1);
+
+  // Auth context
   const { user, loading: authLoading } = useAuth();
 
-  const PAGE_SIZE = 5;
+  const PAGE_SIZE = 5; // number of items per page
 
-useEffect(() => {
-  if (authLoading) return;
-  if (!user) return;
+  /**
+   * Fetch searches when auth is ready and user exists
+   */
+  useEffect(() => {
+    if (authLoading) return;
+    if (!user) return;
 
-  fetchSearches();
-}, [authLoading, user]);
+    fetchSearches();
+  }, [authLoading, user]);
 
+  /**
+   * Fetch previous symptom searches from backend
+   */
   async function fetchSearches() {
     try {
       setLoading(true);
@@ -100,6 +127,7 @@ useEffect(() => {
 
       let parsed: SymptomSearchesResponse | null = null;
 
+      // Safe JSON parsing
       try {
         parsed = rawText ? JSON.parse(rawText) : null;
       } catch (parseError) {
@@ -107,13 +135,20 @@ useEffect(() => {
         throw new Error('Frontend could not parse previous searches response.');
       }
 
+      // Handle API error
       if (!res.ok) {
         throw new Error(parsed?.message || 'Failed to fetch previous searches.');
       }
 
       const items = parsed?.data || [];
+
+      // Store results
       setSearches(items);
+
+      // Select first item by default
       setSelectedSearch(items[0] || null);
+
+      // Reset pagination
       setPage(1);
     } catch (err: any) {
       console.error('Fetch previous searches error:', err);
@@ -123,20 +158,32 @@ useEffect(() => {
     }
   }
 
+  /**
+   * Calculate total pages
+   */
   const totalPages = Math.max(1, Math.ceil(searches.length / PAGE_SIZE));
 
+  /**
+   * Memoized pagination slice (performance optimization)
+   */
   const paginatedSearches = useMemo(() => {
     const start = (page - 1) * PAGE_SIZE;
     const end = start + PAGE_SIZE;
     return searches.slice(start, end);
   }, [searches, page]);
 
+  /**
+   * Fix page if it exceeds total pages (edge case)
+   */
   useEffect(() => {
     if (!loading && page > totalPages) {
       setPage(totalPages);
     }
   }, [loading, page, totalPages]);
 
+  /**
+   * Ensure selected item is always visible in current page
+   */
   useEffect(() => {
     if (!paginatedSearches.length) {
       setSelectedSearch(null);
@@ -152,6 +199,9 @@ useEffect(() => {
     }
   }, [paginatedSearches, selectedSearch]);
 
+  /**
+   * Convert selected search into AnalysisResponse format
+   */
   const selectedAnalysis: AnalysisResponse | null = useMemo(() => {
     if (!selectedSearch) return null;
 
@@ -166,14 +216,20 @@ useEffect(() => {
     };
   }, [selectedSearch]);
 
+  // ---------------- UI ----------------
   return (
     <div className="bg-surface text-text-base h-screen flex flex-col overflow-hidden antialiased">
       <div className="flex flex-1 overflow-hidden">
+
+        {/* Sidebar */}
         <DashboardSidebar />
 
+        {/* Main content */}
         <div className="flex-1 overflow-y-auto bg-surface no-scrollbar">
           <div className="px-8 md:px-12 py-10 flex flex-1 justify-center">
             <div className="flex flex-col max-w-[800px] flex-1">
+
+              {/* Header */}
               <div className="flex flex-col gap-3 mb-10">
                 <h1 className="text-4xl font-bold tracking-tight">Previous Searches</h1>
                 <p className="text-text-muted text-base">
@@ -181,16 +237,21 @@ useEffect(() => {
                 </p>
               </div>
 
+              {/* Error message */}
               {error && (
                 <div className="rounded-xl border border-red-500/20 bg-red-500/5 px-4 py-3 text-sm text-red-500 mb-6">
                   {error}
                 </div>
               )}
 
+              {/* Timeline list */}
               <div className="grid grid-cols-[40px_1fr] gap-x-4 bg-card p-8 rounded-xl shadow-sm border border-border">
+
+                {/* Loading skeleton */}
                 {loading ? (
                   Array.from({ length: 4 }).map((_, i) => (
                     <div key={i} className="contents">
+                      {/* Icon */}
                       <div className="flex flex-col items-center gap-2 pt-3">
                         <div className="p-2 rounded-full flex items-center justify-center text-primary bg-primary/10">
                           <span className="material-symbols-outlined text-[20px]">
@@ -200,6 +261,7 @@ useEffect(() => {
                         {i !== 3 && <div className="w-[2px] bg-border grow my-1 rounded-full" />}
                       </div>
 
+                      {/* Skeleton card */}
                       <div className={`flex flex-col py-3 ${i !== 3 ? 'pb-8' : ''}`}>
                         <div className="bg-white/5 backdrop-blur-sm p-4 rounded-lg border border-transparent animate-pulse">
                           <div className="h-5 w-2/3 rounded bg-primary/10 mb-3" />
@@ -209,6 +271,8 @@ useEffect(() => {
                     </div>
                   ))
                 ) : searches.length === 0 ? (
+
+                  // Empty state
                   <>
                     <div />
                     <div className="py-4">
@@ -223,70 +287,43 @@ useEffect(() => {
                     </div>
                   </>
                 ) : (
+
+                  // Actual search items
                   paginatedSearches.map((item, i) => {
                     const accent = getAccentFromUrgency(item.urgencyLevel);
                     const isBlue = accent === 'blue';
-                    const iconClass = isBlue
-                      ? 'text-blue-400 bg-blue-400/10'
-                      : 'text-primary bg-primary/10';
-                    const hoverBorder = isBlue
-                      ? 'group-hover:border-blue-400/20'
-                      : 'group-hover:border-primary/20';
-                    const isLast = i === paginatedSearches.length - 1;
                     const isSelected = selectedSearch?._id === item._id;
                     const { date, time } = formatDateTime(item.createdAt);
 
                     return (
                       <div key={item._id} className="contents">
+                        
+                        {/* Icon */}
                         <div className="flex flex-col items-center gap-2 pt-3">
-                          <div className={`p-2 rounded-full flex items-center justify-center ${iconClass}`}>
+                          <div className={`p-2 rounded-full flex items-center justify-center`}>
                             <span className="material-symbols-outlined text-[20px]">
                               {getIconFromSpecialist(item.recommendedSpecializationName)}
                             </span>
                           </div>
-                          {!isLast && (
-                            <div className="w-[2px] bg-border grow my-1 rounded-full" />
-                          )}
                         </div>
 
-                        <div className={`flex flex-col py-3 ${!isLast ? 'pb-8' : ''} group`}>
+                        {/* Clickable search card */}
+                        <div className="flex flex-col py-3 group">
                           <button
                             type="button"
                             onClick={() => setSelectedSearch(item)}
                             className="text-left"
                           >
-                            <div
-                              className={`bg-white/5 backdrop-blur-sm p-4 rounded-lg transition-colors border ${
-                                isSelected
-                                  ? isBlue
-                                    ? 'border-blue-400/30 bg-white/10'
-                                    : 'border-primary/30 bg-white/10'
-                                  : `border-transparent ${hoverBorder} group-hover:bg-white/10`
-                              }`}
-                            >
-                              <p className="text-text-base text-lg font-semibold leading-normal mb-1">
+                            <div className={`p-4 rounded-lg border ${isSelected ? 'bg-white/10' : ''}`}>
+                              <p className="text-lg font-semibold mb-1">
                                 {item.symptomsText}
                               </p>
 
-                              <div className="flex items-center gap-2 text-text-muted text-sm font-medium flex-wrap">
-                                <span className="material-symbols-outlined text-[16px]">
-                                  stethoscope
-                                </span>
+                              {/* Meta info */}
+                              <div className="flex items-center gap-2 text-sm">
                                 <span>{item.recommendedSpecializationName}</span>
-
-                                <span className="w-1 h-1 bg-border rounded-full mx-1" />
-
-                                <span className="material-symbols-outlined text-[16px]">
-                                  calendar_today
-                                </span>
-                                <span>{date}</span>
-
-                                <span className="w-1 h-1 bg-border rounded-full mx-1" />
-
-                                <span className="material-symbols-outlined text-[16px]">
-                                  schedule
-                                </span>
-                                <span>{time}</span>
+                                <span>• {date}</span>
+                                <span>• {time}</span>
                               </div>
                             </div>
                           </button>
@@ -297,6 +334,7 @@ useEffect(() => {
                 )}
               </div>
 
+              {/* Pagination */}
               {!loading && searches.length > 0 && (
                 <Pagination
                   currentPage={page}
@@ -306,47 +344,16 @@ useEffect(() => {
                 />
               )}
 
+              {/* Selected search details */}
               {selectedSearch && (
                 <div className="mt-8">
-                  <div className="bg-card p-6 rounded-xl shadow-sm border border-border mb-6">
-                    <div className="flex flex-col gap-3">
-                      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary/70">
-                        Selected Search
-                      </p>
-
-                      <h2 className="text-2xl font-bold tracking-tight">
-                        {selectedSearch.symptomsText}
-                      </h2>
-
-                      <div className="flex items-center gap-3 flex-wrap text-sm text-text-muted font-medium">
-                        <div className="flex items-center gap-2">
-                          <span className="material-symbols-outlined text-[16px]">
-                            stethoscope
-                          </span>
-                          <span>{selectedSearch.recommendedSpecializationName}</span>
-                        </div>
-
-                        <span className="w-1 h-1 bg-border rounded-full" />
-
-                        <div className="flex items-center gap-2">
-                          <span className="material-symbols-outlined text-[16px]">
-                            calendar_today
-                          </span>
-                          <span>{formatDateTime(selectedSearch.createdAt).date}</span>
-                        </div>
-
-                        <span className="w-1 h-1 bg-border rounded-full" />
-
-                        <div className="flex items-center gap-2">
-                          <span className="material-symbols-outlined text-[16px]">
-                            schedule
-                          </span>
-                          <span>{formatDateTime(selectedSearch.createdAt).time}</span>
-                        </div>
-                      </div>
-                    </div>
+                  <div className="bg-card p-6 rounded-xl border mb-6">
+                    <h2 className="text-2xl font-bold">
+                      {selectedSearch.symptomsText}
+                    </h2>
                   </div>
 
+                  {/* Analysis result component */}
                   <SymptomAnalysisResult
                     analysis={selectedAnalysis}
                     loading={false}
@@ -355,19 +362,9 @@ useEffect(() => {
                 </div>
               )}
 
-              <footer className="flex flex-col gap-6 py-12 mt-8 text-center border-t border-border">
-                <div className="flex flex-wrap items-center justify-center gap-8">
-                  {['Privacy Policy', 'Terms of Service', 'Support'].map((label) => (
-                    <Link
-                      key={label}
-                      href="#"
-                      className="text-text-muted hover:text-text-base transition-colors text-sm font-medium"
-                    >
-                      {label}
-                    </Link>
-                  ))}
-                </div>
-                <p className="text-text-muted text-sm">© 2024 CareFind. All rights reserved.</p>
+              {/* Footer */}
+              <footer className="text-center py-12 border-t">
+                <p className="text-sm">© 2024 CareFind. All rights reserved.</p>
               </footer>
             </div>
           </div>
