@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 
-// ── Types ─────────────────────────────────────────────────────
+// types for typesctipt
 interface SessionDoctor {
   _id?: string;
   id?: string | number;
@@ -39,7 +39,7 @@ interface Doctor {
   distanceMiles: number;
 }
 
-// ── Haversine distance (miles) ────────────────────────────────
+// checking the distance between user and doctor using Haversine formula (in miles)
 function haversineMiles(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 3958.8;
   const dLat = (lat2 - lat1) * (Math.PI / 180);
