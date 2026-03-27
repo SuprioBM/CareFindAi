@@ -1,4 +1,4 @@
-'use client';
+'use client'; // This makes the component run on the client side (Next.js App Router)
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
@@ -8,6 +8,10 @@ import Pagination from '@/components/pageComponents/Pagination';
 import { apiFetch } from '@/lib/api';
 import { AnalysisResponse } from '@/types/types';
 import { useAuth } from '@/authContext/authContext';
+
+/**
+ * Type for a single symptom search item returned from backend
+ */
 
 type SymptomSearchItem = {
   _id: string;
@@ -22,12 +26,20 @@ type SymptomSearchItem = {
   createdAt: string;
 };
 
+/**
+ * API response type for fetching searches
+ */
+
 type SymptomSearchesResponse = {
   success: boolean;
   count: number;
   data: SymptomSearchItem[];
   message?: string;
 };
+
+/**
+ * Utility: formats ISO date string into readable date & time
+ */
 
 function formatDateTime(dateString: string) {
   const date = new Date(dateString);
@@ -44,6 +56,10 @@ function formatDateTime(dateString: string) {
     }),
   };
 }
+
+/**
+ * Utility: maps specialist name to a material icon
+ */
 
 function getIconFromSpecialist(name: string) {
   const lower = name.toLowerCase();
@@ -62,6 +78,11 @@ function getIconFromSpecialist(name: string) {
   return 'medical_services';
 }
 
+/**
+ * Utility: determines accent color based on urgency level
+ */
+
+
 function getAccentFromUrgency(
   urgency: 'low' | 'medium' | 'high' | 'emergency'
 ): 'primary' | 'blue' {
@@ -70,15 +91,26 @@ function getAccentFromUrgency(
     : 'primary';
 }
 
+/**
+ * Main Component: Previous Searches Page
+ */
+
 export default function PreviousSearchesPage() {
+  // ---------------- STATE ----------------
   const [searches, setSearches] = useState<SymptomSearchItem[]>([]);
   const [selectedSearch, setSelectedSearch] = useState<SymptomSearchItem | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [page, setPage] = useState(1);
+
+  // Auth context
   const { user, loading: authLoading } = useAuth();
 
   const PAGE_SIZE = 5;
+
+  /**
+   * Fetch searches when auth is ready and user exists
+   */
 
 useEffect(() => {
   if (authLoading) return;
@@ -86,6 +118,10 @@ useEffect(() => {
 
   fetchSearches();
 }, [authLoading, user]);
+
+  /**
+   * Fetch previous symptom searches from backend
+   */
 
   async function fetchSearches() {
     try {
@@ -123,7 +159,15 @@ useEffect(() => {
     }
   }
 
+  /**
+   * Calculate total pages
+   */
+
   const totalPages = Math.max(1, Math.ceil(searches.length / PAGE_SIZE));
+
+  /**
+   * Memoized pagination slice (performance optimization)
+   */
 
   const paginatedSearches = useMemo(() => {
     const start = (page - 1) * PAGE_SIZE;
@@ -131,11 +175,19 @@ useEffect(() => {
     return searches.slice(start, end);
   }, [searches, page]);
 
+   /**
+   * Fix page if it exceeds total pages (edge case)
+   */
+
   useEffect(() => {
     if (!loading && page > totalPages) {
       setPage(totalPages);
     }
   }, [loading, page, totalPages]);
+  
+  /**
+   * Ensure selected item is always visible in current page
+   */
 
   useEffect(() => {
     if (!paginatedSearches.length) {
@@ -152,9 +204,14 @@ useEffect(() => {
     }
   }, [paginatedSearches, selectedSearch]);
 
+
+  /**
+   * Convert selected search into AnalysisResponse format
+   */
   const selectedAnalysis: AnalysisResponse | null = useMemo(() => {
     if (!selectedSearch) return null;
 
+    // ---------------- UI ----------------
     return {
       specialist: selectedSearch.recommendedSpecializationName,
       explanation: selectedSearch.analysisReason,
