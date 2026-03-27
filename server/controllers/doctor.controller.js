@@ -201,6 +201,7 @@ export async function deleteDoctor(req, res) {
  */
 export async function getNearbyDoctors(req, res) {
   try {
+    // Required: latitude and longitude of the user. Optional: radius in km and specialization filter.
     const { latitude, longitude, radius = 20, specialization } = req.query;
 
   console.log(latitude,longitude,specialization);
