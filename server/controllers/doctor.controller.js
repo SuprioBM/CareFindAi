@@ -203,7 +203,6 @@ export async function getNearbyDoctors(req, res) {
   try {
     const { latitude, longitude, radius = 20, specialization } = req.query;
 
-  console.log(latitude,longitude,specialization);
   
 
     const userLat = Number(latitude);
@@ -236,7 +235,6 @@ export async function getNearbyDoctors(req, res) {
     }
 
     const doctors = await Doctor.find(filter).populate("specialization");
-    console.log(doctors);
     
 
     return res.status(200).json({
