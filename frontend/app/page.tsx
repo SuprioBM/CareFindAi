@@ -55,7 +55,7 @@ export default function Home() {
                 Stop guessing your symptoms. Use our AI to understand what&apos;s wrong and instantly match with the right specialists near you.
               </p>
               <div className="flex max-w-2xl mx-auto lg:mx-0">
-                <Link href="/symptoms" className="bg-primary hover:bg-primary-hover text-white px-10 h-14 rounded-xl font-bold transition-all shadow-md shadow-primary/20 whitespace-nowrap flex items-center justify-center">
+                <Link href="/analyze" className="bg-primary hover:bg-primary-hover text-white px-10 h-14 rounded-xl font-bold transition-all shadow-md shadow-primary/20 whitespace-nowrap flex items-center justify-center">
                   Analyze Symptoms
                 </Link>
               </div>

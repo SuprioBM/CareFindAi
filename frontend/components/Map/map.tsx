@@ -123,7 +123,7 @@ function MapControls({ userLocation }: { userLocation: [number, number] }) {
     'size-10 bg-card rounded-xl shadow border border-border flex items-center justify-center text-text-sub hover:text-primary hover:border-primary transition-colors';
 
   return (
-    <div className="absolute bottom-6 right-4 z-1000 flex flex-col gap-2 pointer-events-auto">
+    <div className="absolute bottom-25 right-4 z-1000 flex flex-col gap-2 pointer-events-auto">
       <button className={btn} onClick={() => map.zoomIn()} title="Zoom in">
         <span className="material-symbols-outlined">add</span>
       </button>
@@ -131,7 +131,7 @@ function MapControls({ userLocation }: { userLocation: [number, number] }) {
         <span className="material-symbols-outlined">remove</span>
       </button>
       <button
-        className={`${btn} mt-2`}
+        className={`${btn}`}
         onClick={() => map.setView(userLocation, 14, { animate: true })}
         title="My location"
       >
@@ -281,7 +281,7 @@ export default function DoctorMap({ userLocation, doctors, onDoctorClick, routeT
     {/* ── Route info card ── */}
     {routeInfo && (
       <div
-        style={{ position: 'absolute', bottom: '24px', left: '16px', zIndex: 1000 }}
+        style={{ position: 'absolute', bottom: '100px', left: '16px', zIndex: 1000 }}
         className="bg-card border border-primary/30 rounded-2xl shadow-xl p-4 min-w-56 pointer-events-auto"
       >
         <div className="flex items-center justify-between mb-3">
