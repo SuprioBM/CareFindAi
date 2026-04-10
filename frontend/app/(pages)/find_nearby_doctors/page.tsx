@@ -5,7 +5,7 @@ import dynamic from 'next/dynamic';
 import { apiFetch } from '@/lib/api';
 import { useAuth } from '@/authContext/authContext';
 
-// ── Types ─────────────────────────────────────────────────────
+// types for typesctipt
 interface SessionDoctor {
   _id?: string;
   id?: string | number;
@@ -41,13 +41,8 @@ interface Doctor {
   distanceMiles: number;
 }
 
-// ── Haversine distance (miles) ────────────────────────────────
-function haversineMiles(
-  lat1: number,
-  lon1: number,
-  lat2: number,
-  lon2: number
-): number {
+// checking the distance between user and doctor using Haversine formula (in miles)
+function haversineMiles(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 3958.8;
   const dLat = (lat2 - lat1) * (Math.PI / 180);
   const dLon = (lon2 - lon1) * (Math.PI / 180);
@@ -62,7 +57,7 @@ function haversineMiles(
 const DEFAULT_LOCATION: [number, number] = [23.8103, 90.4125];
 const DEFAULT_PHOTO = '/default-doctor.png';
 
-// ── Dynamic Leaflet map (no SSR) ─────────────────────────────
+//  Dynamic Leaflet map component with SSR disabled and a custom loading state
 const DoctorMap = dynamic(() => import('../../../components/Map/map'), {
   ssr: false,
   loading: () => (
@@ -75,7 +70,7 @@ const DoctorMap = dynamic(() => import('../../../components/Map/map'), {
   ),
 });
 
-// ── Page ──────────────────────────────────────────────────────
+// Main Page Component for Doctor Discovery
 export default function DoctorDiscoveryPage() {
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
   const [locLoading, setLocLoading] = useState(true);
