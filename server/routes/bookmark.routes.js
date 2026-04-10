@@ -6,9 +6,12 @@ import {
   updateBookmark,
   deleteBookmark,
 } from "../controllers/bookmark.controller.js";
+import { protect } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
+
+router.use(protect);
 router.post("/", createBookmark);
 router.get("/", getMyBookmarks);
 router.get("/:id", getBookmarkById);

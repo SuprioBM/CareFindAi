@@ -3,6 +3,7 @@ import Bookmark from "../models/bookmark.model.js";
 export async function createBookmark(req, res) {
   try {
     const { doctor, savedLocation } = req.body;
+    
 
     const existingBookmark = await Bookmark.findOne({
       user: req.user.id,

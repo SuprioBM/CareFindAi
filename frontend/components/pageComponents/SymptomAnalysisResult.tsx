@@ -2,8 +2,8 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { apiFetch } from '@/lib/api';
-import { AnalysisResponse, NearbyDoctorsResponse } from '@/types/types';
+import { AnalysisResponse } from '@/types/types';
+import { fetchNearbyDoctors } from '@/lib/findnearByDoctors';
 
 type SymptomAnalysisResultProps = {
   analysis: AnalysisResponse | null;
@@ -64,44 +64,14 @@ export default function SymptomAnalysisResult({
         specialization: analysis.specialist.trim(),
       });
       
+     await fetchNearbyDoctors({
+    latitude: position.coords.latitude,
+    longitude: position.coords.longitude,
+    specialization: analysis.specialist.trim(),
+  });
+    router.push('/find_nearby_doctors');
 
-      const res = await apiFetch(`/doctors/nearby/search?${params.toString()}`, {
-        method: 'GET',
-      });
-     console.log(res);
-     
-      const rawText = await res.text();
-
-      let parsed: NearbyDoctorsResponse | null = null;
-
-      try {
-        parsed = rawText ? JSON.parse(rawText) : null;
-      } catch (parseError) {
-        console.error('Nearby doctors JSON parse error:', parseError);
-        throw new Error('Frontend could not parse nearby doctors response.');
-      }
-
-      if (!res.ok) {
-        throw new Error(parsed?.message || 'Failed to fetch nearby doctors.');
-      }
-
-      const nearbyDoctorsData = parsed;
-
-      sessionStorage.setItem(
-        'carefind_nearby_doctors',
-        JSON.stringify({
-          userLocation: {
-            latitude,
-            longitude,
-          },
-          specialization: nearbyDoctorsData?.specialization ?? analysis.specialist ?? null,
-          doctors: nearbyDoctorsData?.data ?? [],
-          fromSymptomsPage: true,
-          searchedSymptoms,
-        })
-      );
-
-      router.push('/find_nearby_doctors');
+      
     } catch (err: any) {
       console.error('Find nearby specialist error:', err);
 
@@ -244,6 +214,21 @@ export default function SymptomAnalysisResult({
           </span>
           {findingDoctors ? 'Finding Nearby Doctors...' : 'See Nearby Specialist'}
         </button>
+
+        <button
+            type="button"
+     onClick={() =>
+    router.push(
+      `/manual-search?specialist=${encodeURIComponent(analysis?.specialist || "")}`
+    )
+  }
+            className="flex w-full items-center justify-center rounded-xl h-11 px-5 bg-primary text-white text-sm font-bold hover:bg-primary-hover disabled:opacity-70 disabled:cursor-not-allowed transition-colors shadow-lg shadow-primary/20"
+      >
+        <span className="material-symbols-outlined mr-2 text-[18px]">
+          search
+        </span>
+        Manual Search
+      </button>
       </div>
     </div>
   );

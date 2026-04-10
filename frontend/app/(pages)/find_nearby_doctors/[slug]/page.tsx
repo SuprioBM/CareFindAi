@@ -1,7 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import ThemeToggle from '../../../../components/Themes/ThemeToggle';
 
 const workingHours = [
   { day: 'Monday', hours: '9:00 AM - 5:00 PM' },

@@ -106,7 +106,7 @@ ${sourceForModel}
     ],
   });
 
-  const parsed = safeJsonParse(raw);
+  const parsed = safeJsonParse(raw);  
 
   return {
     isMedical: Boolean(parsed?.isMedical),

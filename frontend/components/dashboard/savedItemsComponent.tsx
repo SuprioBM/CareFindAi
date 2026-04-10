@@ -3,48 +3,23 @@
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
-import { SavedDoctor, SavedLocation } from '@/types/types';
+import { SavedLocation } from '@/types/types';
+import { apiFetch } from '@/lib/api';
+import { useAuth } from '@/authContext/authContext';
 
+// ── Types ─────────────────────────────────────────────────────
+interface BookmarkedDoctor {
+  bookmarkId: string;
+  doctorId: string;
+  fullName: string;
+  specializationName: string;
+  profileImage: string;
+  city: string;
+  fees: number;
+  consultation: string;
+}
 
-const savedDoctorsMock: SavedDoctor[] = [
-  {
-    id: 1,
-    name: 'Dr. Sarah Jenkins',
-    specialty: 'Cardiologist',
-    rating: '4.9',
-    reviews: 120,
-    image:
-      'https://lh3.googleusercontent.com/aida-public/AB6AXuB0qhlNQI6mO3c0A0RRS-iE7knzmt35O3Uye46CIsm3Qst-orrU7CMGbp17hjtFmmHcAswN-xe5IF4x5RG4iS10VX-lfr6r6yS9aLO7eWK9yli8lDDUZDYfhFQNsMkRq5JZgnCFGBWvUfjoUHB7aCV-4MIv9K9MerhjLBXQZM8SCrnxQNfIfEY0ZrjlFCFpuTXUBL69H9MXfeCCS4LbjpFlQNOzXcMdlc2pL_v1podyhZ7abXoCe4JEEZqqbsnBknGdLSkuOWHzNO8',
-  },
-  {
-    id: 2,
-    name: 'Dr. Michael Chen',
-    specialty: 'Dermatologist',
-    rating: '4.8',
-    reviews: 85,
-    image:
-      'https://lh3.googleusercontent.com/aida-public/AB6AXuB32iYRmK_SWEkt1JtNE7XvujqZRXCGvb0Zu_Rm4jHLEiXDErYMNE2v0u-x2lx7aofrN__uJTTklx-G383vWbYjvrx4Yd7yv3HqilBashV2k95akax1qGwGHzLNnqKTRyfM0lhAzUn7NhdhMOyGjixVsyAlsERInekzAU2vaQQMyfqmWAqh5N2VwEPVtFgIs6HYFSlWeWMWAQ48jiiPPlk55f7Rc9BuvZOwQd9qaIpYWkngeIrxwIxeYMkxlSptwm4rJh9qhvQv6is',
-  },
-  {
-    id: 3,
-    name: 'Dr. Emily Rodriguez',
-    specialty: 'Pediatrician',
-    rating: '4.9',
-    reviews: 200,
-    image:
-      'https://lh3.googleusercontent.com/aida-public/AB6AXuBrTuAhtNOcV0ER_KEszgh0eoIUjkCaA8YGWBzmNvna_bPjiWmGK7oAw2ZaZfCTjavQFosI3lMUedjm6ZcqVXaEKnTeTK7HojH6ypSop3sqj4nuwsS1B6oXDjwjiyeGLbQ_tleq5tHJbc9xd8h-vhXrAUet2E1soczboPOPsbOPtdukHv-mrKj3aiW2O-ae1pwliLZPAQOHQQgr4HJNUp2Nd5gnXcpIJrCHQ7kn4oBKzPNAE2z-i69p-BYMkL9LnQy8T4qNiIjCG0g',
-  },
-  {
-    id: 4,
-    name: 'Dr. James Wilson',
-    specialty: 'Neurologist',
-    rating: '4.7',
-    reviews: 150,
-    image:
-      'https://lh3.googleusercontent.com/aida-public/AB6AXuBY5hAjT_13zMDf_59qExVizyKGwnsp9aEP20ybdhQNYiTuPX1CxJfUyTHcI6_wbZfxvVzykbTrlDT13wU650ZSQZE6gnWb2xK797ddkbc7YkeVEu6Fg8ZLdQ3TYVqiVctX3-F3Kl5EuWQcb_qlACOKqEzb4RXRcUM7_Lp7BF_l8MUO6F-6teqkVvuVIHFAsoJ7Ars84hEan1d-mnifPOK09GYwsZDfI4jd7eOadx0NHfW7O-hNYmZ88ASfHf-bKzKIvzvwpowxKvQ',
-  },
-];
-
+// ── Saved Locations mock (untouched) ─────────────────────────
 const savedLocationsMock: SavedLocation[] = [
   {
     id: 101,
@@ -70,9 +45,7 @@ const savedLocationsMock: SavedLocation[] = [
   },
 ];
 
-
-
-
+// ── Dynamic map (untouched) ───────────────────────────────────
 const DoctorMap = dynamic(() => import('../../components/Map/map'), {
   ssr: false,
   loading: () => (
@@ -83,14 +56,89 @@ const DoctorMap = dynamic(() => import('../../components/Map/map'), {
 });
 
 const DEFAULT_USER_LOCATION: [number, number] = [47.6062, -122.3321];
+const DEFAULT_PHOTO = '/default-doctor.png';
 
+// ── Component ─────────────────────────────────────────────────
 export default function SavedItemsContent() {
+  const { user, loading } = useAuth();
+
+  // ── Bookmark state ────────────────────────────────────────
+  const [doctors, setDoctors] = useState<BookmarkedDoctor[]>([]);
+  const [fetching, setFetching] = useState(true);
+  const [removing, setRemoving] = useState<string | null>(null);
+
+  // ── Location state (untouched) ────────────────────────────
   const [userLocation, setUserLocation] = useState<[number, number]>(DEFAULT_USER_LOCATION);
   const [activeRouteLocationId, setActiveRouteLocationId] = useState<number | null>(null);
 
+  // ── Fetch bookmarks ───────────────────────────────────────
+  useEffect(() => {
+    if (loading || !user) return;
+
+    async function loadBookmarks() {
+      try {
+        setFetching(true);
+        const res = await apiFetch('/bookmarks');
+        const data = await res.json();
+        if (!data.success) return;
+
+        setDoctors(
+          data.data.map((b: any) => ({
+            bookmarkId: b._id,
+            doctorId: b.doctor._id,
+            fullName: b.doctor.fullName,
+            specializationName: b.doctor.specializationName,
+            profileImage: b.doctor.profileImage || DEFAULT_PHOTO,
+            city: b.doctor.city,
+            fees: b.doctor.fees,
+            consultation: b.doctor.consultation,
+          }))
+        );
+      } catch (e) {
+        console.error('Failed to load bookmarks:', e);
+      } finally {
+        setFetching(false);
+      }
+    }
+
+    loadBookmarks();
+  }, [loading, user]);
+
+  // ── Remove bookmark (optimistic) ─────────────────────────
+  const removeBookmark = async (bookmarkId: string) => {
+    setRemoving(bookmarkId);
+    setDoctors((prev) => prev.filter((d) => d.bookmarkId !== bookmarkId));
+
+    try {
+      const res = await apiFetch(`/bookmarks/${bookmarkId}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.message);
+    } catch (e) {
+      console.error('Remove failed, reverting:', e);
+      const res = await apiFetch('/api/v1/bookmarks');
+      const data = await res.json();
+      if (data.success) {
+        setDoctors(
+          data.data.map((b: any) => ({
+            bookmarkId: b._id,
+            doctorId: b.doctor._id,
+            fullName: b.doctor.fullName,
+            specializationName: b.doctor.specializationName,
+            profileImage: b.doctor.profileImage || DEFAULT_PHOTO,
+            city: b.doctor.city,
+            fees: b.doctor.fees,
+            consultation: b.doctor.consultation,
+          }))
+        );
+      }
+    } finally {
+      setRemoving(null);
+    }
+  };
+
+  // ── Geolocation (untouched) ───────────────────────────────
   useEffect(() => {
     if (!('geolocation' in navigator)) return;
-
     navigator.geolocation.getCurrentPosition(
       (position) => {
         setUserLocation([position.coords.latitude, position.coords.longitude]);
@@ -102,6 +150,7 @@ export default function SavedItemsContent() {
     );
   }, []);
 
+  // ── Map helpers (untouched) ───────────────────────────────
   const mapMarkers = useMemo(
     () =>
       savedLocationsMock.map((location) => ({
@@ -136,58 +185,105 @@ export default function SavedItemsContent() {
         </p>
       </div>
 
+      {/* ── Saved Doctors ── */}
       <section className="flex flex-col gap-6">
         <div className="flex items-center justify-between border-b border-border pb-4">
           <div className="flex items-center gap-3">
             <span className="material-symbols-outlined text-primary text-2xl">stethoscope</span>
             <h2 className="text-2xl font-bold text-text-base">Saved Doctors</h2>
           </div>
-          <span className="bg-card text-primary px-3 py-1 rounded-full text-sm font-bold border border-primary/20">
-            {savedDoctorsMock.length} Saved
-          </span>
+          {!fetching && (
+            <span className="bg-card text-primary px-3 py-1 rounded-full text-sm font-bold border border-primary/20">
+              {doctors.length} Saved
+            </span>
+          )}
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {savedDoctorsMock.map((doctor) => (
-            <article
-              key={doctor.name}
-              className="bg-card rounded-xl border border-border overflow-hidden shadow-sm hover:shadow-md transition-shadow group"
-            >
+        {/* loading skeletons */}
+        {fetching && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {[...Array(4)].map((_, i) => (
               <div
-                className="w-full aspect-4/3 bg-center bg-no-repeat bg-cover relative"
-                style={{ backgroundImage: `url('${doctor.image}')` }}
+                key={i}
+                className="bg-card rounded-xl border border-border overflow-hidden shadow-sm animate-pulse"
               >
-                <button className="absolute top-3 right-3 size-8 bg-card/90 rounded-full flex items-center justify-center text-error hover:scale-110 transition-transform shadow-sm">
-                  <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: "'FILL' 1" }}>
-                    favorite
-                  </span>
-                </button>
+                <div className="w-full aspect-4/3 bg-border" />
+                <div className="p-5 flex flex-col gap-3">
+                  <div className="h-4 bg-border rounded w-3/4" />
+                  <div className="h-3 bg-border rounded w-1/2" />
+                  <div className="h-9 bg-border rounded mt-2" />
+                </div>
               </div>
+            ))}
+          </div>
+        )}
 
-              <div className="p-5 flex flex-col gap-4">
-                <div>
-                  <h3 className="text-lg font-bold text-text-base mb-1">{doctor.name}</h3>
-                  <p className="text-text-muted text-sm font-medium">{doctor.specialty}</p>
-                </div>
+        {/* empty state */}
+        {!fetching && doctors.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-16 gap-4 text-text-muted border border-dashed border-border rounded-xl">
+            <span className="material-symbols-outlined text-5xl text-primary/30">favorite</span>
+            <p className="text-base font-medium">No saved doctors yet</p>
+            <Link href="/symptoms" className="text-sm text-primary font-semibold hover:underline">
+              Find doctors near you →
+            </Link>
+          </div>
+        )}
 
-                <div className="flex items-center gap-1.5 text-sm font-medium">
-                  <span className="material-symbols-outlined text-yellow-400 text-[18px]">star</span>
-                  <span className="text-text-base">{doctor.rating}</span>
-                  <span className="text-text-muted ml-1">({doctor.reviews} reviews)</span>
-                </div>
-
-                <Link
-                  href={`/doctors/${doctor.id}`}
-                  className="w-full py-2.5 bg-surface text-primary font-bold rounded-lg border border-primary/20 hover:bg-primary hover:text-white transition-colors mt-2 text-sm text-center"
+        {/* doctor cards */}
+        {!fetching && doctors.length > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {doctors.map((doctor) => (
+              <article
+                key={doctor.bookmarkId}
+                className="bg-card rounded-xl border border-border overflow-hidden shadow-sm hover:shadow-md transition-shadow group"
+              >
+                <div
+                  className="w-full aspect-4/3 bg-center bg-no-repeat bg-cover relative"
+                  style={{
+                    backgroundImage: `url('${doctor.profileImage}')`,
+                    backgroundColor: 'var(--color-border)',
+                  }}
                 >
-                  Book Appointment
-                </Link>
-              </div>
-            </article>
-          ))}
-        </div>
+                  <button
+                    onClick={() => removeBookmark(doctor.bookmarkId)}
+                    disabled={removing === doctor.bookmarkId}
+                    className="absolute top-3 right-3 size-8 bg-card/90 rounded-full flex items-center justify-center text-error hover:scale-110 transition-transform shadow-sm disabled:opacity-50"
+                  >
+                    <span
+                      className="material-symbols-outlined text-[20px]"
+                      style={{ fontVariationSettings: "'FILL' 1" }}
+                    >
+                      favorite
+                    </span>
+                  </button>
+                </div>
+
+                <div className="p-5 flex flex-col gap-4">
+                  <div>
+                    <h3 className="text-lg font-bold text-text-base mb-1">{doctor.fullName}</h3>
+                    <p className="text-text-muted text-sm font-medium">{doctor.specializationName}</p>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 text-sm font-medium">
+                    <span className="material-symbols-outlined text-yellow-400 text-[18px]">star</span>
+                    <span className="text-text-base">—</span>
+                    <span className="text-text-muted ml-1">No ratings yet</span>
+                  </div>
+
+                  <Link
+                    href={`/doctors/${doctor.doctorId}`}
+                    className="w-full py-2.5 bg-surface text-primary font-bold rounded-lg border border-primary/20 hover:bg-primary hover:text-white transition-colors mt-2 text-sm text-center"
+                  >
+                    Book Appointment
+                  </Link>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
       </section>
 
+      {/* ── Saved Locations (untouched) ── */}
       <section className="flex flex-col gap-6 bg-card p-8 rounded-2xl border border-border">
         <div className="flex items-center justify-between border-b border-border/60 pb-4">
           <div className="flex items-center gap-3">
@@ -204,59 +300,58 @@ export default function SavedItemsContent() {
             const isRouting = activeRouteLocationId === location.id;
 
             return (
-            <article
-              key={location.name}
-              className="bg-surface rounded-xl border border-border overflow-hidden flex flex-col sm:flex-row shadow-sm hover:shadow-md transition-shadow"
-            >
-              <div
-                className="w-full sm:w-2/5 h-48 sm:h-auto bg-center bg-no-repeat bg-cover relative"
-                style={{ backgroundImage: `url('${location.image}')` }}
+              <article
+                key={location.name}
+                className="bg-surface rounded-xl border border-border overflow-hidden flex flex-col sm:flex-row shadow-sm hover:shadow-md transition-shadow"
               >
-                <button className="absolute top-3 right-3 size-8 bg-card/90 rounded-full flex items-center justify-center text-error hover:scale-110 transition-transform shadow-sm sm:hidden">
-                  <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: "'FILL' 1" }}>
-                    favorite
-                  </span>
-                </button>
-              </div>
-
-              <div className="p-6 flex-1 flex flex-col justify-between relative">
-                <button className="absolute top-4 right-4 size-8 bg-card rounded-full hidden sm:flex items-center justify-center text-error hover:scale-110 transition-transform">
-                  <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: "'FILL' 1" }}>
-                    favorite
-                  </span>
-                </button>
-
-                <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="bg-primary/20 text-primary text-xs font-bold px-2 py-0.5 rounded uppercase tracking-wider">
-                      {location.tag}
+                <div
+                  className="w-full sm:w-2/5 h-48 sm:h-auto bg-center bg-no-repeat bg-cover relative"
+                  style={{ backgroundImage: `url('${location.image}')` }}
+                >
+                  <button className="absolute top-3 right-3 size-8 bg-card/90 rounded-full flex items-center justify-center text-error hover:scale-110 transition-transform shadow-sm sm:hidden">
+                    <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: "'FILL' 1" }}>
+                      favorite
                     </span>
+                  </button>
+                </div>
+
+                <div className="p-6 flex-1 flex flex-col justify-between relative">
+                  <button className="absolute top-4 right-4 size-8 bg-card rounded-full hidden sm:flex items-center justify-center text-error hover:scale-110 transition-transform">
+                    <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: "'FILL' 1" }}>
+                      favorite
+                    </span>
+                  </button>
+
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="bg-primary/20 text-primary text-xs font-bold px-2 py-0.5 rounded uppercase tracking-wider">
+                        {location.tag}
+                      </span>
+                    </div>
+                    <h3 className="text-xl font-bold text-text-base mb-2">{location.name}</h3>
+                    <p className="text-text-muted text-sm leading-relaxed mb-4">
+                      {location.addressLine1}
+                      <br />
+                      {location.addressLine2}
+                    </p>
                   </div>
 
-                  <h3 className="text-xl font-bold text-text-base mb-2">{location.name}</h3>
-                  <p className="text-text-muted text-sm leading-relaxed mb-4">
-                    {location.addressLine1}
-                    <br />
-                    {location.addressLine2}
-                  </p>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => setActiveRouteLocationId(location.id)}
+                      className={`flex-1 py-2 font-bold rounded-lg transition-colors text-sm flex items-center justify-center gap-2 ${
+                        isRouting ? 'bg-primary-hover text-white' : 'bg-primary text-white hover:bg-primary-hover'
+                      }`}
+                    >
+                      <span className="material-symbols-outlined text-[18px]">{isRouting ? 'route' : 'directions'}</span>
+                      {isRouting ? 'Route Active' : 'Directions'}
+                    </button>
+                    <button className="px-4 py-2 bg-card text-text-base font-semibold rounded-lg border border-border hover:border-primary transition-colors text-sm">
+                      Details
+                    </button>
+                  </div>
                 </div>
-
-                <div className="flex gap-3">
-                  <button
-                    onClick={() => setActiveRouteLocationId(location.id)}
-                    className={`flex-1 py-2 font-bold rounded-lg transition-colors text-sm flex items-center justify-center gap-2 ${
-                      isRouting ? 'bg-primary-hover text-white' : 'bg-primary text-white hover:bg-primary-hover'
-                    }`}
-                  >
-                    <span className="material-symbols-outlined text-[18px]">{isRouting ? 'route' : 'directions'}</span>
-                    {isRouting ? 'Route Active' : 'Directions'}
-                  </button>
-                  <button className="px-4 py-2 bg-card text-text-base font-semibold rounded-lg border border-border hover:border-primary transition-colors text-sm">
-                    Details
-                  </button>
-                </div>
-              </div>
-            </article>
+              </article>
             );
           })}
         </div>

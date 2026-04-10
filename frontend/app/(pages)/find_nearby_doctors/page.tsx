@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import dynamic from 'next/dynamic';
+import { apiFetch } from '@/lib/api';
+import { useAuth } from '@/authContext/authContext';
 
 // ── Types ─────────────────────────────────────────────────────
 interface SessionDoctor {
@@ -40,7 +42,12 @@ interface Doctor {
 }
 
 // ── Haversine distance (miles) ────────────────────────────────
-function haversineMiles(lat1: number, lon1: number, lat2: number, lon2: number): number {
+function haversineMiles(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number
+): number {
   const R = 3958.8;
   const dLat = (lat2 - lat1) * (Math.PI / 180);
   const dLon = (lon2 - lon1) * (Math.PI / 180);
@@ -52,7 +59,7 @@ function haversineMiles(lat1: number, lon1: number, lat2: number, lon2: number):
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-const DEFAULT_LOCATION: [number, number] = [23.8103, 90.4125]; // Dhaka fallback
+const DEFAULT_LOCATION: [number, number] = [23.8103, 90.4125];
 const DEFAULT_PHOTO = '/default-doctor.png';
 
 // ── Dynamic Leaflet map (no SSR) ─────────────────────────────
@@ -60,7 +67,9 @@ const DoctorMap = dynamic(() => import('../../../components/Map/map'), {
   ssr: false,
   loading: () => (
     <div className="flex-1 flex flex-col items-center justify-center bg-surface gap-3 text-text-muted">
-      <span className="material-symbols-outlined text-[52px] text-primary/30 animate-pulse">map</span>
+      <span className="material-symbols-outlined text-[52px] text-primary/30 animate-pulse">
+        map
+      </span>
       <p className="text-sm">Loading map…</p>
     </div>
   ),
@@ -72,14 +81,20 @@ export default function DoctorDiscoveryPage() {
   const [locLoading, setLocLoading] = useState(true);
   const [selectedId, setSelectedId] = useState<string | number | null>(null);
   const [routeToId, setRouteToId] = useState<string | number | null>(null);
-  const [favorites, setFavorites] = useState<Set<string | number>>(new Set());
+
+  // bookmarkedIds = set of doctor _id strings that the current user has bookmarked
+  // bookmarkMap   = doctorId -> bookmarkDocumentId  (needed for DELETE)
+  const [bookmarkedIds, setBookmarkedIds] = useState<Set<string>>(new Set());
+  const [bookmarkMap, setBookmarkMap] = useState<Record<string, string>>({});
+
   const [sessionDoctors, setSessionDoctors] = useState<SessionDoctor[]>([]);
   const [sessionSpecialization, setSessionSpecialization] = useState('');
   const [sessionLoaded, setSessionLoaded] = useState(false);
+  const { user, loading } = useAuth();
 
+  // ── Load session data ───────────────────────────────────────
   useEffect(() => {
     const stored = sessionStorage.getItem('carefind_nearby_doctors');
-
     if (stored) {
       try {
         const parsed = JSON.parse(stored);
@@ -92,22 +107,113 @@ export default function DoctorDiscoveryPage() {
           setLocLoading(false);
         }
 
-        if (Array.isArray(parsed?.doctors)) {
-          setSessionDoctors(parsed.doctors);
-        }
-
-        if (parsed?.specialization) {
-          setSessionSpecialization(parsed.specialization);
-        }
-      } catch (error) {
-        console.error('Failed to parse session doctors data:', error);
+        if (Array.isArray(parsed?.doctors)) setSessionDoctors(parsed.doctors);
+        if (parsed?.specialization) setSessionSpecialization(parsed.specialization);
+      } catch (e) {
+        console.error('Failed to parse session doctors data:', e);
       }
     }
-
     setSessionLoaded(true);
   }, []);
 
-  // fallback geolocation only if sessionStorage did not provide location
+
+useEffect(() => {
+  if (loading || !user) return;
+
+  async function loadBookmarks() {
+    try {
+      const res = await apiFetch('/bookmarks');
+      const data = await res.json();
+      if (!data.success) return;
+
+      const ids = new Set<string>();
+      const map: Record<string, string> = {};
+
+      for (const b of data.data) {
+        const doctorId: string = b.doctor._id ?? b.doctor;
+        ids.add(doctorId);
+        map[doctorId] = b._id;
+      }
+
+      setBookmarkedIds(ids);
+      setBookmarkMap(map);
+    } catch (e) {
+      console.error('Failed to load bookmarks:', e);
+    }
+  }
+
+  loadBookmarks();
+}, [loading, user]); // re-runs when auth resolves
+
+  // ── Toggle bookmark (optimistic) ───────────────────────────
+  const toggleBookmark = async (doctorId: string | number) => {
+    const id = String(doctorId);
+    const alreadyBookmarked = bookmarkedIds.has(id);
+
+    // Optimistic update
+    if (alreadyBookmarked) {
+      setBookmarkedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+      setBookmarkMap((prev) => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
+    } else {
+      setBookmarkedIds((prev) => new Set(prev).add(id));
+    }
+
+    try {
+      if (alreadyBookmarked) {
+        // DELETE /api/v1/bookmarks/:bookmarkId
+        const bookmarkId = bookmarkMap[id];
+        if (!bookmarkId) throw new Error('Bookmark ID not found for doctor ' + id);
+
+        const res = await apiFetch(`/bookmarks/${bookmarkId}`, {
+          method: 'DELETE',
+        });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.message);
+      } else {
+        // POST /api/v1/bookmarks
+        const res = await apiFetch('/bookmarks', {
+          method: 'POST',
+          body: JSON.stringify({ doctor: id, savedLocation: null }),
+        });
+        const data = await res.json();
+        console.log(data);
+        
+        if (!data.success) throw new Error(data.message);
+
+        // Save the new bookmark's _id so we can delete it later
+        const newBookmarkId: string = data.data._id;
+        setBookmarkMap((prev) => ({ ...prev, [id]: newBookmarkId }));
+      }
+    } catch (e) {
+      console.error('Bookmark toggle failed, reverting:', e);
+
+      // Revert optimistic update on error
+      if (alreadyBookmarked) {
+        setBookmarkedIds((prev) => new Set(prev).add(id));
+      } else {
+        setBookmarkedIds((prev) => {
+          const next = new Set(prev);
+          next.delete(id);
+          return next;
+        });
+        setBookmarkMap((prev) => {
+          const next = { ...prev };
+          delete next[id];
+          return next;
+        });
+      }
+    }
+  };
+
+  // ── Fallback geolocation ────────────────────────────────────
   useEffect(() => {
     if (!sessionLoaded || userLocation) return;
 
@@ -130,6 +236,7 @@ export default function DoctorDiscoveryPage() {
     );
   }, [sessionLoaded, userLocation]);
 
+  // ── Build Doctor[] from session data ───────────────────────
   const doctors: Doctor[] = useMemo(() => {
     const [userLat, userLng] = userLocation ?? DEFAULT_LOCATION;
 
@@ -139,14 +246,14 @@ export default function DoctorDiscoveryPage() {
           typeof doc.latitude === 'number'
             ? doc.latitude
             : Array.isArray(doc.location?.coordinates)
-            ? Number(doc.location.coordinates[1])
+            ? Number(doc.location!.coordinates![1])
             : null;
 
         const lng =
           typeof doc.longitude === 'number'
             ? doc.longitude
             : Array.isArray(doc.location?.coordinates)
-            ? Number(doc.location.coordinates[0])
+            ? Number(doc.location!.coordinates![0])
             : null;
 
         if (lat == null || lng == null) return null;
@@ -159,11 +266,17 @@ export default function DoctorDiscoveryPage() {
         return {
           id: doc._id || doc.id || `doctor-${index + 1}`,
           name: doc.fullName || doc.name || 'Unknown Doctor',
-          specialty: doc.specializationName || doc.specialty || sessionSpecialization || 'Specialist',
+          specialty:
+            doc.specializationName ||
+            doc.specialty ||
+            sessionSpecialization ||
+            'Specialist',
           rating: 4.8,
           reviews: 0,
           photo: doc.profileImage || DEFAULT_PHOTO,
-          insurance: doc.appointmentWebsite ? 'Online Appointment Available' : 'Call for Appointment',
+          insurance: doc.appointmentWebsite
+            ? 'Online Appointment Available'
+            : 'Call for Appointment',
           availability: doc.consultation || 'Check schedule',
           lat,
           lng,
@@ -179,13 +292,6 @@ export default function DoctorDiscoveryPage() {
     }
   }, [doctors, selectedId]);
 
-  const toggleFav = (id: string | number) =>
-    setFavorites((prev) => {
-      const s = new Set(prev);
-      s.has(id) ? s.delete(id) : s.add(id);
-      return s;
-    });
-
   const routeToDoctor = doctors.find((d) => d.id === routeToId);
   const routeTo: [number, number] | null = routeToDoctor
     ? [routeToDoctor.lat, routeToDoctor.lng]
@@ -196,6 +302,7 @@ export default function DoctorDiscoveryPage() {
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-surface text-text-base">
       <main className="flex flex-1 overflow-hidden">
+        {/* ── Left panel ── */}
         <div className="flex flex-col w-full lg:w-[620px] xl:w-[680px] shrink-0 border-r border-border bg-card z-10 flex-1 lg:flex-none">
           <div className="p-5 border-b border-border shrink-0">
             <h1 className="text-2xl font-bold text-text-base mb-1">Find a Doctor</h1>
@@ -206,12 +313,12 @@ export default function DoctorDiscoveryPage() {
             </p>
 
             <div className="flex flex-wrap gap-2 mb-4">
-              {sessionSpecialization ? (
+              {sessionSpecialization && (
                 <button className="flex h-8 items-center gap-1 rounded-full border border-primary bg-primary/10 text-primary px-3 text-sm font-medium hover:bg-primary/20 transition-colors">
                   {sessionSpecialization}
                   <span className="material-symbols-outlined text-[16px]">close</span>
                 </button>
-              ) : null}
+              )}
 
               {['Specialty', 'Availability', 'Insurance'].map((f) => (
                 <button
@@ -219,13 +326,17 @@ export default function DoctorDiscoveryPage() {
                   className="flex h-8 items-center gap-1 rounded-full border border-border bg-surface text-text-sub px-4 text-sm font-medium hover:bg-section-teal transition-colors"
                 >
                   {f}
-                  <span className="material-symbols-outlined text-[18px]">keyboard_arrow_down</span>
+                  <span className="material-symbols-outlined text-[18px]">
+                    keyboard_arrow_down
+                  </span>
                 </button>
               ))}
             </div>
 
             <div className="flex items-center justify-between text-sm">
-              <span className="text-text-muted font-medium">{doctors.length} doctors found</span>
+              <span className="text-text-muted font-medium">
+                {doctors.length} doctors found
+              </span>
               <button className="flex items-center gap-1.5 text-text-sub hover:text-primary transition-colors font-medium">
                 <span className="material-symbols-outlined text-[18px]">sort</span>
                 Sort by: Recommended
@@ -240,13 +351,13 @@ export default function DoctorDiscoveryPage() {
                   key={doc.id}
                   doc={doc}
                   isSelected={selectedId === doc.id}
-                  isFavorited={favorites.has(doc.id)}
                   isRouting={routeToId === doc.id}
+                  isFavorited={bookmarkedIds.has(String(doc.id))}
                   onSelect={() => {
                     setSelectedId(doc.id);
                     setRouteToId(doc.id);
                   }}
-                  onFavorite={() => toggleFav(doc.id)}
+                  onFavorite={() => toggleBookmark(doc.id)}
                   onGetDirections={() => {
                     setSelectedId(doc.id);
                     setRouteToId(doc.id);
@@ -261,6 +372,7 @@ export default function DoctorDiscoveryPage() {
           </div>
         </div>
 
+        {/* ── Map panel ── */}
         <div className="hidden lg:flex flex-1 relative overflow-hidden">
           {userLocation ? (
             <DoctorMap
@@ -299,8 +411,8 @@ export default function DoctorDiscoveryPage() {
 interface CardProps {
   doc: Doctor;
   isSelected: boolean;
-  isFavorited: boolean;
   isRouting: boolean;
+  isFavorited: boolean; // ← now a prop, not closed-over state
   onSelect: () => void;
   onFavorite: () => void;
   onGetDirections: () => void;
@@ -309,8 +421,8 @@ interface CardProps {
 function DoctorCard({
   doc,
   isSelected,
-  isFavorited,
   isRouting,
+  isFavorited,
   onSelect,
   onFavorite,
   onGetDirections,
@@ -344,6 +456,7 @@ function DoctorCard({
           >
             {doc.name}
           </h2>
+
           <button
             onClick={(e) => {
               e.stopPropagation();

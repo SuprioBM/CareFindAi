@@ -259,5 +259,12 @@ export function mapDoctorToForm(doctor: Doctor): DoctorFormState {
 }
 
 
+type NearbyDoctorParams = {
+  latitude: number;
+  longitude: number;
+  specialization: string;
+  radius?: number;
+};
 
-export type { User, AuthContextType, Section, SavedDoctor, SavedLocation, AnalysisResponse, NearbyDoctorsResponse };
+
+export type { User, AuthContextType, Section, SavedDoctor, SavedLocation, AnalysisResponse, NearbyDoctorsResponse, NearbyDoctorParams };

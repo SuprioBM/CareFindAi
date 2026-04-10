@@ -1,4 +1,5 @@
 import Specialization from "../models/specialization.model.js";
+import Doctor from "../models/doctor.model.js";
 
 export async function createSpecialization(req, res) {
   try {
@@ -15,7 +16,7 @@ export async function createSpecialization(req, res) {
     return res.status(201).json({
       success: true,
       message: "Specialization created successfully",
-      data: specialization,
+      data: { ...specialization.toObject(), doctorCount: 0 },
     });
   } catch (error) {
     return res.status(500).json({
@@ -28,7 +29,27 @@ export async function createSpecialization(req, res) {
 
 export async function getAllSpecializations(req, res) {
   try {
-    const specializations = await Specialization.find().sort({ createdAt: -1 });
+    const specializations = await Specialization.aggregate([
+      { $sort: { createdAt: -1 } },
+      {
+        $lookup: {
+          from: "doctors",
+          localField: "_id",
+          foreignField: "specialization",
+          as: "doctors",
+        },
+      },
+      {
+        $addFields: {
+          doctorCount: { $size: "$doctors" },
+        },
+      },
+      {
+        $project: {
+          doctors: 0, // drop the joined array, keep only the count
+        },
+      },
+    ]);
 
     return res.status(200).json({
       success: true,
