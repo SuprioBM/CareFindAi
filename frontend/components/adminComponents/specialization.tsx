@@ -469,6 +469,7 @@ interface CardProps extends Specialization {
 function SpecializationCard({ _id, name, icon, description, doctorCount, isActive, onEdit, onDelete }: CardProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const effectiveActive = isActive && doctorCount > 0;
 
   // close on outside click
   useEffect(() => {
@@ -503,15 +504,14 @@ function SpecializationCard({ _id, name, icon, description, doctorCount, isActiv
         </div>
 
         <div className="flex gap-2 items-center">
-          <span
-            className={`px-2.5 py-1 rounded-full text-[11px] font-bold tracking-wider border ${
-              isActive
-                ? 'bg-primary/20 text-primary border-primary/30'
-                : 'bg-section-teal text-text-muted border-border'
-            }`}
-          >
-            {isActive ? 'ACTIVE' : 'INACTIVE'}
-          </span>
+      
+        <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold tracking-wider border ${
+          effectiveActive
+            ? 'bg-primary/20 text-primary border-primary/30'
+            : 'bg-section-teal text-text-muted border-border'
+        }`}>
+          {effectiveActive ? 'ACTIVE' : `INACTIVE${doctorCount === 0 ? '' : ''}`}
+        </span>
 
           {/* Three-dot menu */}
           <div ref={menuRef} className="relative">
