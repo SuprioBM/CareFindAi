@@ -19,7 +19,6 @@ interface BookmarkedDoctor {
   consultation: string;
 }
 
-// ── Saved Locations mock (untouched) ─────────────────────────
 const savedLocationsMock: SavedLocation[] = [
   {
     id: 101,
@@ -45,7 +44,6 @@ const savedLocationsMock: SavedLocation[] = [
   },
 ];
 
-// ── Dynamic map (untouched) ───────────────────────────────────
 const DoctorMap = dynamic(() => import('../../components/Map/map'), {
   ssr: false,
   loading: () => (
