@@ -75,13 +75,7 @@ export const getAnalytics = async (req, res) => {
     }));
 
 
-     console.log("topSpecialists:", topSpecialists);
-     console.log("topSymptoms:", topSymptoms);
-     console.log("totalSearches:", totalSearches);
-     console.log("kpis:", kpis);
-     console.log("patientGrowth:", patientGrowth);
-     console.log("revenueByDept:", revenueByDept);
-     console.log("urgencyStats:", urgencyStats);
+
 
     // ✅ RESPONSE
     res.json({
