@@ -1,6 +1,7 @@
 export const API_BASE = process.env.NEXT_PUBLIC_API_URL;
 
 import { getAccessToken, setAccessToken, clearAccessToken } from "./auth";
+import { triggerLogout } from "./authBridge";
 
 // single-flight refresh lock
 let refreshPromise: Promise<string | null> | null = null;
@@ -80,6 +81,8 @@ export async function apiFetch(endpoint: string, options: RequestInit = {}) {
     const newToken = await refreshPromise;
 
     if (!newToken) {
+      clearAccessToken();
+      triggerLogout();
       throw Object.assign(new Error("Session expired. Please log in again."), {
         code: "SESSION_EXPIRED",
       });

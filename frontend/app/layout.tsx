@@ -4,6 +4,7 @@ import { ThemeProvider } from "../components/Themes/ThemeProvider";
 import "./globals.css";
 import { AuthProvider } from "@/authContext/authContext";
 import { Toaster } from "sonner";
+import AuthEventHandler from "@/components/pageComponents/authEventhandler";
 
 
 const inter = Inter({
@@ -35,6 +36,7 @@ export default function RootLayout({
 
           <AuthProvider>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+          <AuthEventHandler/>
           {children}
             <Toaster
               richColors

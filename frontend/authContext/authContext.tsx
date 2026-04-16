@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { apiFetch } from "@/lib/api";
 import { User, AuthContextType } from "@/types/types";
 import { setAccessToken, clearAccessToken } from "@/lib/auth";
@@ -42,6 +42,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     restoreSession();
   }, []);
 
+
+
   // ===================== Auto-refresh access token =====================
   useEffect(() => {
     const interval = setInterval(
@@ -73,12 +75,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setAccessToken(accessToken);
   };
 
-  const logout = async () => {
-    await apiFetch("/auth/logout", { method: "POST" });
+  const logout = useCallback(async (silent?: boolean): Promise<void> => {
+    try {
+      if (!silent) {
+        await apiFetch("/auth/logout", { method: "POST" });
+      }
+    } catch {}
+
     sessionStorage.clear();
     setUser(null);
     clearAccessToken();
-  };
+  }, []);
 
   return (
     <AuthContext.Provider value={{ user, loading, login, logout }}>

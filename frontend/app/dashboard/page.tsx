@@ -1,76 +1,188 @@
 'use client';
 
 import Link from 'next/link';
-import ThemeToggle from '../../components/Themes/ThemeToggle';
+import { useEffect, useState } from 'react';
 import DashboardSidebar from '../../components/dashboard/dashBoardsidebar';
+import { useAuth } from '@/authContext/authContext';
+import { apiFetch } from '@/lib/api';
 
-const previousSearches = [
-  { icon: 'search', label: 'Cardiologist in NY' },
-  { icon: 'healing', label: 'Skin rash symptoms' },
-  { icon: 'child_care', label: 'Pediatrician nearby' },
-  { icon: 'monitor_heart', label: 'Knee pain analysis' },
-];
+type SymptomSearchItem = {
+  _id: string;
+  symptomsText: string;
+  recommendedSpecializationName?: string;
+};
 
-const savedDoctors = [
-  {
-    name: 'Dr. Emily Chen',
-    specialty: 'Cardiology',
-    rating: '4.9',
-    reviews: 124,
-    distance: '2.3 mi away',
-    photo: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAO_RlGzdRc9gfEiZz9-cr36_UBH7g_LUc9z6flk7KXgfvH6HV3XsktfLoGA11DMaG4TyNrcAtMDTUwm_P6yRngBOgPJG7qAhPBARV0rcNghybRaV7_n4Ths6mk9y3ydTOMdPKy8gnX0wAkFKB7LQbnDmS_tSoyglZI1v1IOllWsVaGTiGrU1H7L3vyvmmXM811GJm_fw2nUFpEpacOTers21JUpnJSomTz6hlzCzyL_otUPqKtYc1hXWCzoYoUOUiUi_3edbZ7MiQ',
-  },
-  {
-    name: 'Dr. James Wilson',
-    specialty: 'Dermatology',
-    rating: '4.7',
-    reviews: 89,
-    distance: '5.1 mi away',
-    photo: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDNBypTGqwh83owuP2v6-5LhDqvhh9CG5-mrpG3wqH1xpbLMHsfsmOcAPbHEOxdFxPH53khm7vbwNsHX4UiEPbBx1Td8nHoxAUhDeBUyIqf8NL_NxqciZph-As6Gk-m_UsAMoyE_LRo4wNhkwAbhlhuLhTOdG0asE-OE8XxHp_q8OycWdZ488b5Wxcbw02Zudv3zjA6zy8tDZwIWEBy4uaN540vpPZO36efdVqxtcCFGRSR5m1aRBMYaiq7ANyeMZG_egp6yIF3PQY',
-  },
-];
+type SymptomSearchesResponse = {
+  success: boolean;
+  data: SymptomSearchItem[];
+  message?: string;
+};
+
+type BookmarkItem = {
+  _id: string;
+  doctor?: {
+    _id?: string;
+    fullName?: string;
+    specializationName?: string;
+    profileImage?: string;
+    city?: string;
+  };
+};
+
+type BookmarkResponse = {
+  success: boolean;
+  data: BookmarkItem[];
+  message?: string;
+};
+
+type PreviousSearchChip = {
+  id: string;
+  icon: string;
+  label: string;
+};
+
+type SavedDoctorCard = {
+  bookmarkId: string;
+  doctorId: string;
+  name: string;
+  specialty: string;
+  location: string;
+  photo: string;
+};
+
+const DEFAULT_DOCTOR_PHOTO = '/default-doctor.png';
+
+function getSearchIcon(label: string): string {
+  const text = label.toLowerCase();
+  if (text.includes('heart') || text.includes('cardio')) return 'monitor_heart';
+  if (text.includes('skin') || text.includes('derma')) return 'healing';
+  if (text.includes('child') || text.includes('pedia')) return 'child_care';
+  if (text.includes('neuro') || text.includes('head')) return 'neurology';
+  return 'search';
+}
 
 export default function DashboardPage() {
+  const { user, loading: authLoading } = useAuth();
+  const [previousSearches, setPreviousSearches] = useState<PreviousSearchChip[]>([]);
+  const [savedDoctors, setSavedDoctors] = useState<SavedDoctorCard[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (authLoading) return;
+
+    if (!user) {
+      setPreviousSearches([]);
+      setSavedDoctors([]);
+      setLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadDashboardData = async () => {
+      try {
+        setLoading(true);
+        setError('');
+
+        const [searchRes, bookmarkRes] = await Promise.all([
+          apiFetch('/symptom-searches', { method: 'GET' }),
+          apiFetch('/bookmarks', { method: 'GET' }),
+        ]);
+
+        const [searchJson, bookmarkJson] = await Promise.all([
+          searchRes.json().catch(() => null),
+          bookmarkRes.json().catch(() => null),
+        ]);
+
+        const searchData = (searchJson as SymptomSearchesResponse | null)?.data ?? [];
+        const bookmarkData = (bookmarkJson as BookmarkResponse | null)?.data ?? [];
+
+        const mappedSearches = searchData.slice(0, 6).map((item) => {
+          const label =
+            item.symptomsText?.trim() ||
+            item.recommendedSpecializationName?.trim() ||
+            'Symptom analysis';
+
+          return {
+            id: item._id,
+            icon: getSearchIcon(label),
+            label,
+          };
+        });
+
+        const mappedDoctors = bookmarkData.slice(0, 6).map((item) => {
+          const doctor = item.doctor;
+          return {
+            bookmarkId: item._id,
+            doctorId: doctor?._id || item._id,
+            name: doctor?.fullName || 'Unknown Doctor',
+            specialty: doctor?.specializationName || 'General Medicine',
+            location: doctor?.city || 'Location unavailable',
+            photo: doctor?.profileImage || DEFAULT_DOCTOR_PHOTO,
+          };
+        });
+
+        if (!cancelled) {
+          setPreviousSearches(mappedSearches);
+          setSavedDoctors(mappedDoctors);
+
+          if (!searchRes.ok && !bookmarkRes.ok) {
+            setError('Could not load dashboard data right now.');
+          }
+        }
+      } catch {
+        if (!cancelled) {
+          setPreviousSearches([]);
+          setSavedDoctors([]);
+          setError('Could not load dashboard data right now.');
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    };
+
+    void loadDashboardData();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [authLoading, user]);
+
+  if (authLoading) {
+    return (
+      <div className="bg-surface text-text-base min-h-[calc(100vh-80px)] flex items-center justify-center p-6">
+        <p className="text-sm text-text-muted">Checking your session...</p>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="bg-surface text-text-base min-h-[calc(100vh-80px)] flex items-center justify-center p-6">
+        <div className="w-full max-w-md rounded-2xl border border-border bg-card p-8 text-center shadow-sm">
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary">
+            <span className="material-symbols-outlined">lock</span>
+          </div>
+          <h1 className="mb-2 text-2xl font-bold tracking-tight">Login to see the dashboard</h1>
+          <p className="mb-6 text-sm text-text-muted">
+            Please sign in to access your health insights, saved doctors, and search history.
+          </p>
+          <Link
+            href={`/login?redirect=${encodeURIComponent('/dashboard')}`}
+            className="inline-flex h-11 items-center justify-center rounded-xl bg-primary px-6 text-sm font-bold text-white transition-colors hover:bg-primary-hover"
+          >
+            Go to Login
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-surface text-text-base min-h-screen flex flex-col antialiased">
-
-      {/* ── Header ── */}
-      <header className="flex items-center justify-between border-b border-border bg-surface px-10 py-4 shrink-0 z-10">
-        <div className="flex items-center gap-8">
-          <div className="flex items-center gap-3 text-primary">
-            <span className="material-symbols-outlined text-3xl">medical_services</span>
-            <h2 className="text-xl font-bold tracking-tight text-text-base">CareFind</h2>
-          </div>
-          <div className="hidden md:flex items-stretch rounded-xl h-10 min-w-40 max-w-96 w-full ml-8 bg-card border border-border focus-within:border-primary transition-colors">
-            <div className="text-text-muted flex items-center justify-center pl-4 pr-2">
-              <span className="material-symbols-outlined">search</span>
-            </div>
-            <input
-              className="flex w-full min-w-0 flex-1 rounded-xl bg-transparent text-text-base focus:outline-none border-none h-full placeholder:text-text-muted px-2 text-sm"
-              placeholder="Search doctors, symptoms, or locations"
-            />
-          </div>
-        </div>
-
-        <div className="flex flex-1 justify-end gap-6 items-center">
-          <nav className="hidden md:flex items-center gap-6">
-            <Link href="/dashboard" className="text-primary font-bold text-sm border-b-2 border-primary py-1">Dashboard</Link>
-            <Link href="/symptoms" className="text-text-muted hover:text-primary transition-colors text-sm font-medium py-1">Find Doctors</Link>
-            <Link href="#" className="text-text-muted hover:text-primary transition-colors text-sm font-medium py-1">Appointments</Link>
-            <Link href="#" className="text-text-muted hover:text-primary transition-colors text-sm font-medium py-1">Messages</Link>
-          </nav>
-          <div className="w-px h-6 bg-border mx-2" />
-          <ThemeToggle />
-          <button className="flex cursor-pointer items-center justify-center rounded-full h-10 w-10 bg-card border border-border text-text-sub hover:text-primary hover:border-primary/50 transition-colors relative">
-            <span className="material-symbols-outlined">notifications</span>
-            <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-primary rounded-full border-2 border-surface shadow-[0_0_8px_rgba(20,184,166,0.8)]" />
-          </button>
-          <button
-            className="w-10 h-10 rounded-full bg-cover bg-center border-2 border-border hover:border-primary transition-colors focus:outline-none focus:ring-2 focus:ring-primary"
-            style={{ backgroundImage: `url('https://lh3.googleusercontent.com/aida-public/AB6AXuALIbtxG5dgreIPyyA9EO_WA_EuPh9AoV0veDI92q7BKCXqUeBPmJZXrNLCtz_vUOhkRSg3BU86bnSqk_Dq62JIdwYD32_jz9Dj3s83yhsgTdmNDZw1-TAqIJQ-8ZrmkGV2koT4BqErgNNDLdtNWdgXELrChCn0Pfzmfg43iyArT4NocY4UNWY9LUnxOovcQVc3D-sEiV0n88si2ytehIeuh57vUbNoI8e5SPmjmq7jlqAACNVINdFCOYqV4KwDJFj_HOV-CaXmIDA')` }}
-          />
-        </div>
-      </header>
 
       {/* ── Body ── */}
       <div className="flex flex-1 overflow-hidden">
@@ -81,9 +193,17 @@ export default function DashboardPage() {
 
             {/* Welcome */}
             <div>
-              <h1 className="text-3xl font-bold tracking-tight mb-2">Welcome back, Sarah</h1>
+              <h1 className="text-3xl font-bold tracking-tight mb-2">
+                Welcome back, {user?.name || user?.email || 'there'}
+              </h1>
               <p className="text-text-muted">Here&apos;s what&apos;s happening with your health journey today.</p>
             </div>
+
+            {error && (
+              <div className="rounded-xl border border-error/30 bg-error/10 px-4 py-3 text-sm text-error">
+                {error}
+              </div>
+            )}
 
             {/* Previous Searches */}
             <section>
@@ -95,15 +215,29 @@ export default function DashboardPage() {
                 <Link href="/dashboard/previous_searches" className="text-sm font-medium text-primary hover:underline">View all</Link>
               </div>
               <div className="flex gap-3 flex-wrap">
-                {previousSearches.map(({ icon, label }) => (
-                  <button
-                    key={label}
-                    className="flex items-center justify-center gap-2 rounded-full border border-border bg-card/50 backdrop-blur-md hover:border-primary/50 hover:bg-card transition-all px-4 py-2 text-sm font-medium text-text-base"
-                  >
-                    <span className="material-symbols-outlined text-[18px] text-primary">{icon}</span>
-                    {label}
-                  </button>
-                ))}
+                {loading &&
+                  Array.from({ length: 4 }).map((_, index) => (
+                    <div
+                      key={`search-skeleton-${index}`}
+                      className="h-10 w-44 animate-pulse rounded-full border border-border bg-card/50"
+                    />
+                  ))}
+
+                {!loading && previousSearches.length === 0 && (
+                  <p className="text-sm text-text-muted">No previous searches yet.</p>
+                )}
+
+                {!loading &&
+                  previousSearches.map(({ id, icon, label }) => (
+                    <button
+                      key={id}
+                      type="button"
+                      className="flex items-center justify-center gap-2 rounded-full border border-border bg-card/50 backdrop-blur-md hover:border-primary/50 hover:bg-card transition-all px-4 py-2 text-sm font-medium text-text-base"
+                    >
+                      <span className="material-symbols-outlined text-[18px] text-primary">{icon}</span>
+                      {label}
+                    </button>
+                  ))}
               </div>
             </section>
 
@@ -114,67 +248,79 @@ export default function DashboardPage() {
                   <span className="material-symbols-outlined text-primary">favorite</span>
                   Saved Doctors
                 </h2>
-                <button className="text-sm font-medium text-primary hover:underline">Manage</button>
+                <Link href="/dashboard/saved_items" className="text-sm font-medium text-primary hover:underline">
+                  Manage
+                </Link>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {savedDoctors.map((doc) => (
-                  <div
-                    key={doc.name}
-                    className="bg-card border border-border rounded-xl p-5 shadow-sm hover:shadow-lg hover:border-primary/30 transition-all relative group"
-                  >
-                    <button className="absolute top-4 right-4 text-error opacity-0 group-hover:opacity-100 transition-opacity">
-                      <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>favorite</span>
-                    </button>
-                    <div className="flex items-start gap-4">
-                      <div
-                        className="w-14 h-14 rounded-full bg-cover bg-center border border-border flex-shrink-0"
-                        style={{ backgroundImage: `url('${doc.photo}')` }}
-                      />
-                      <div>
-                        <h3 className="font-bold text-text-base text-base">{doc.name}</h3>
-                        <p className="text-primary text-sm font-medium">{doc.specialty}</p>
-                        <div className="flex items-center gap-1 mt-1 text-text-muted text-xs">
-                          <span className="material-symbols-outlined text-[14px]">star</span>
-                          <span className="font-medium text-text-sub">{doc.rating}</span>
-                          <span>({doc.reviews} reviews)</span>
+                {loading &&
+                  Array.from({ length: 3 }).map((_, index) => (
+                    <div
+                      key={`doctor-skeleton-${index}`}
+                      className="h-44 animate-pulse rounded-xl border border-border bg-card/60"
+                    />
+                  ))}
+
+                {!loading && savedDoctors.length === 0 && (
+                  <div className="col-span-full rounded-xl border border-dashed border-border p-6 text-sm text-text-muted">
+                    No saved doctors yet. Save doctors from results to see them here.
+                  </div>
+                )}
+
+                {!loading &&
+                  savedDoctors.map((doc) => (
+                    <div
+                      key={doc.bookmarkId}
+                      className="bg-card border border-border rounded-xl p-5 shadow-sm hover:shadow-lg hover:border-primary/30 transition-all relative group"
+                    >
+                      <button className="absolute top-4 right-4 text-error opacity-0 group-hover:opacity-100 transition-opacity" type="button" aria-label="Saved doctor">
+                        <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>favorite</span>
+                      </button>
+                      <div className="flex items-start gap-4">
+                        <div
+                          className="w-14 h-14 rounded-full bg-cover bg-center border border-border shrink-0"
+                          style={{ backgroundImage: `url('${doc.photo}')` }}
+                        />
+                        <div>
+                          <h3 className="font-bold text-text-base text-base">{doc.name}</h3>
+                          <p className="text-primary text-sm font-medium">{doc.specialty}</p>
+                          <div className="flex items-center gap-1 mt-1 text-text-muted text-xs">
+                            <span className="material-symbols-outlined text-[14px]">verified</span>
+                            <span className="font-medium text-text-sub">Saved profile</span>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                    <div className="mt-4 pt-4 border-t border-border flex items-center justify-between">
-                      <div className="flex items-center gap-1 text-text-muted text-sm">
-                        <span className="material-symbols-outlined text-[16px]">location_on</span>
-                        <span>{doc.distance}</span>
+                      <div className="mt-4 pt-4 border-t border-border flex items-center justify-between">
+                        <div className="flex items-center gap-1 text-text-muted text-sm">
+                          <span className="material-symbols-outlined text-[16px]">location_on</span>
+                          <span>{doc.location}</span>
+                        </div>
+                        <Link
+                          href={`/doctors/${doc.doctorId}`}
+                          className="text-sm font-bold text-white bg-primary hover:bg-primary-hover shadow-[0_0_15px_rgba(20,184,166,0.3)] rounded-lg px-4 py-2 transition-all"
+                        >
+                          Book
+                        </Link>
                       </div>
-                      <Link
-                        href={`/doctors/1`}
-                        className="text-sm font-bold text-white bg-primary hover:bg-primary-hover shadow-[0_0_15px_rgba(20,184,166,0.3)] rounded-lg px-4 py-2 transition-all"
-                      >
-                        Book
-                      </Link>
                     </div>
-                  </div>
-                ))}
+                  ))}
               </div>
             </section>
 
-              <section>
+            <section>
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-bold flex items-center gap-2">
-                  <span className="material-symbols-outlined text-primary">history</span>
+                  <span className="material-symbols-outlined text-primary">group_add</span>
                   Add Doctors
                 </h2>
-                <Link href="/dashboard/doctor_add" className="text-sm font-medium text-primary hover:underline">add Doctor</Link>
+                <Link href="/dashboard/doctor_add" className="text-sm font-medium text-primary hover:underline">
+                  Add Doctor
+                </Link>
               </div>
-              <div className="flex gap-3 flex-wrap">
-                {previousSearches.map(({ icon, label }) => (
-                  <button
-                    key={label}
-                    className="flex items-center justify-center gap-2 rounded-full border border-border bg-card/50 backdrop-blur-md hover:border-primary/50 hover:bg-card transition-all px-4 py-2 text-sm font-medium text-text-base"
-                  >
-                    <span className="material-symbols-outlined text-[18px] text-primary">{icon}</span>
-                    {label}
-                  </button>
-                ))}
+              <div className="rounded-xl border border-border bg-card/60 p-4">
+                <p className="text-sm text-text-muted">
+                  Add and manage verified doctor profiles so they appear in patient matches and recommendations.
+                </p>
               </div>
             </section>
 

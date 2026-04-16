@@ -10,7 +10,7 @@ const navLinks = [
   { name: "Home", href: "/" },
   { name: "Features", href: "#features" },
   { name: "How It Works", href: "#how-it-works" },
-  { name: "Doctors", href: "/find_nearby_doctors" },
+  { name: "Dashboard", href: "/dashboard" },
 ];
 
 export default function Header() {
@@ -70,7 +70,9 @@ export default function Header() {
                   </span>
 
                   <button
-                    onClick={logout}
+                    onClick={() => {
+                      void logout();
+                    }}
                     className="flex items-center justify-center rounded-xl h-10 px-4 border border-primary/20 text-sm font-semibold hover:bg-primary/10 transition"
                   >
                     Logout

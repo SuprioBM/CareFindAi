@@ -3,7 +3,6 @@
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
-import { SavedLocation } from '@/types/types';
 import { apiFetch } from '@/lib/api';
 import { useAuth } from '@/authContext/authContext';
 
@@ -19,30 +18,53 @@ interface BookmarkedDoctor {
   consultation: string;
 }
 
-const savedLocationsMock: SavedLocation[] = [
-  {
-    id: 101,
-    tag: 'Home Clinic',
-    name: 'Seattle Downtown Medical Center',
-    addressLine1: '1200 5th Ave Suite 200',
-    addressLine2: 'Seattle, WA 98101',
-    image:
-      'https://lh3.googleusercontent.com/aida-public/AB6AXuDiY6Aku8gxxxb_z2Qj1PZWNO5Rqmwp5k0JUkhX5eHIKZCWe2hOEtStStlTKUlHqbretyglNuowdO0kBPnczvOIadGtxLgfUv7gWymytiT9FlageBjrIdDjOpQLr133kvIOY1gkqEsoKmT4e9LQ_Qv1BAPjSza3zAoDDiSgDJ2bv6hKvwhlr8XmHw3FFfuY2YciIxJcBhanFFqBYxknPH6EoomKmZagZGHDEQJziH2LY2GaawZGzQeydbcXarwE4VgaA8DMcmJG1e0',
-    lat: 47.6101,
-    lng: -122.3365,
-  },
-  {
-    id: 102,
-    tag: 'Office Nearby',
-    name: 'Bellevue Eastside Specialists',
-    addressLine1: '10400 NE 4th St',
-    addressLine2: 'Bellevue, WA 98004',
-    image:
-      'https://lh3.googleusercontent.com/aida-public/AB6AXuBCTq0S3Z5lilWU9dmFbfRp5UAEKiyI2BKFAz-nxQcOOobCL-UE8i6rnDybeegVHRa3tg2pcq7C02bSK2Uh1W6PLlekEbu4NxHAiQi20pfPJLFwi5vO2AeXG-GzCzdp8a0RWd3KA_IIs4zC_qOZmDxdXsEJpppR_lXhNJ4wtx2NT-DojaxQ5nnDzUfe1V2GefWDxk05gs6GxTotBmYCB0HveZNNNbg4D4y_Gr9UsJQGFRBFbdWjczl1F6nIjI2c85NxJaKDEo4Awo4',
-    lat: 47.6148,
-    lng: -122.2001,
-  },
-];
+interface BookmarkApiItem {
+  _id: string;
+  doctor?: {
+    _id?: string;
+    fullName?: string;
+    specializationName?: string;
+    profileImage?: string;
+    city?: string;
+    fees?: number;
+    consultation?: string;
+  };
+}
+
+interface BookmarkResponse {
+  success: boolean;
+  data: BookmarkApiItem[];
+  message?: string;
+}
+
+interface SavedLocationApi {
+  _id: string;
+  label: 'home' | 'office' | 'other';
+  customLabel: string;
+  address: string;
+  latitude: number;
+  longitude: number;
+  image?: string;
+}
+
+interface SavedLocationCard {
+  id: number;
+  serverId: string;
+  labelType: 'home' | 'office' | 'other';
+  tag: string;
+  name: string;
+  addressLine1: string;
+  addressLine2: string;
+  image: string | null;
+  lat: number;
+  lng: number;
+}
+
+interface SavedLocationResponse {
+  success: boolean;
+  data: SavedLocationApi[];
+  message?: string;
+}
 
 const DoctorMap = dynamic(() => import('../../components/Map/map'), {
   ssr: false,
@@ -56,6 +78,55 @@ const DoctorMap = dynamic(() => import('../../components/Map/map'), {
 const DEFAULT_USER_LOCATION: [number, number] = [47.6062, -122.3321];
 const DEFAULT_PHOTO = '/default-doctor.png';
 
+function mapLocationLabel(label: 'home' | 'office' | 'other'): string {
+  if (label === 'home') return 'Home';
+  if (label === 'office') return 'Office';
+  return 'Other';
+}
+
+function splitAddress(address: string): [string, string] {
+  const parts = address
+    .split(',')
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  if (parts.length <= 1) {
+    return [parts[0] || address || 'Saved location', ''];
+  }
+
+  return [parts[0], parts.slice(1).join(', ')];
+}
+
+function getLocationIcon(label: 'home' | 'office' | 'other'): string {
+  if (label === 'home') return 'home';
+  if (label === 'office') return 'domain';
+  return 'place';
+}
+
+function buildLocationIconDataUrl(label: 'home' | 'office' | 'other'): string {
+  const icon = label === 'home' ? 'H' : label === 'office' ? 'O' : 'L';
+  const bg = label === 'home' ? '#0d9488' : label === 'office' ? '#2563eb' : '#64748b';
+
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96"><rect width="96" height="96" rx="18" fill="${bg}"/><circle cx="48" cy="48" r="26" fill="rgba(255,255,255,0.2)"/><text x="48" y="56" text-anchor="middle" font-family="Arial, sans-serif" font-size="28" fill="white" font-weight="700">${icon}</text></svg>`;
+
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+}
+
+function mapBookmarkItem(item: BookmarkApiItem): BookmarkedDoctor {
+  const doctor = item.doctor;
+
+  return {
+    bookmarkId: item._id,
+    doctorId: doctor?._id || item._id,
+    fullName: doctor?.fullName || 'Unknown Doctor',
+    specializationName: doctor?.specializationName || 'General Medicine',
+    profileImage: doctor?.profileImage || DEFAULT_PHOTO,
+    city: doctor?.city || 'Location unavailable',
+    fees: doctor?.fees || 0,
+    consultation: doctor?.consultation || 'N/A',
+  };
+}
+
 // ── Component ─────────────────────────────────────────────────
 export default function SavedItemsContent() {
   const { user, loading } = useAuth();
@@ -64,6 +135,9 @@ export default function SavedItemsContent() {
   const [doctors, setDoctors] = useState<BookmarkedDoctor[]>([]);
   const [fetching, setFetching] = useState(true);
   const [removing, setRemoving] = useState<string | null>(null);
+  const [savedLocations, setSavedLocations] = useState<SavedLocationCard[]>([]);
+  const [loadingLocations, setLoadingLocations] = useState(true);
+  const [removingLocationId, setRemovingLocationId] = useState<string | null>(null);
 
   // ── Location state (untouched) ────────────────────────────
   const [userLocation, setUserLocation] = useState<[number, number]>(DEFAULT_USER_LOCATION);
@@ -71,27 +145,22 @@ export default function SavedItemsContent() {
 
   // ── Fetch bookmarks ───────────────────────────────────────
   useEffect(() => {
-    if (loading || !user) return;
+    if (loading) return;
+
+    if (!user) {
+      setDoctors([]);
+      setFetching(false);
+      return;
+    }
 
     async function loadBookmarks() {
       try {
         setFetching(true);
         const res = await apiFetch('/bookmarks');
-        const data = await res.json();
+        const data: BookmarkResponse = await res.json();
         if (!data.success) return;
 
-        setDoctors(
-          data.data.map((b: any) => ({
-            bookmarkId: b._id,
-            doctorId: b.doctor._id,
-            fullName: b.doctor.fullName,
-            specializationName: b.doctor.specializationName,
-            profileImage: b.doctor.profileImage || DEFAULT_PHOTO,
-            city: b.doctor.city,
-            fees: b.doctor.fees,
-            consultation: b.doctor.consultation,
-          }))
-        );
+        setDoctors(data.data.map(mapBookmarkItem));
       } catch (e) {
         console.error('Failed to load bookmarks:', e);
       } finally {
@@ -100,6 +169,69 @@ export default function SavedItemsContent() {
     }
 
     loadBookmarks();
+  }, [loading, user]);
+
+  // ── Fetch saved locations ─────────────────────────────────
+  useEffect(() => {
+    if (loading) return;
+
+    if (!user) {
+      setSavedLocations([]);
+      setLoadingLocations(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    async function loadSavedLocations() {
+      try {
+        setLoadingLocations(true);
+        const res = await apiFetch('/saved-locations');
+        const data: SavedLocationResponse = await res.json();
+
+        if (!data.success) {
+          if (!cancelled) setSavedLocations([]);
+          return;
+        }
+
+        const mapped = data.data.map((location, index) => {
+          const [addressLine1, addressLine2] = splitAddress(location.address);
+          const tag = location.customLabel?.trim() || mapLocationLabel(location.label);
+
+          return {
+            id: index + 1,
+            serverId: location._id,
+            labelType: location.label,
+            tag,
+            name: location.customLabel?.trim() || `${mapLocationLabel(location.label)} Location`,
+            addressLine1,
+            addressLine2,
+            image: location.image?.trim() || null,
+            lat: location.latitude,
+            lng: location.longitude,
+          };
+        });
+
+        if (!cancelled) {
+          setSavedLocations(mapped);
+        }
+      } catch (e) {
+        console.error('Failed to load saved locations:', e);
+        if (!cancelled) {
+          setSavedLocations([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoadingLocations(false);
+        }
+      }
+    }
+
+    loadSavedLocations();
+
+    return () => {
+      cancelled = true;
+    };
   }, [loading, user]);
 
   // ── Remove bookmark (optimistic) ─────────────────────────
@@ -113,24 +245,39 @@ export default function SavedItemsContent() {
       if (!data.success) throw new Error(data.message);
     } catch (e) {
       console.error('Remove failed, reverting:', e);
-      const res = await apiFetch('/api/v1/bookmarks');
-      const data = await res.json();
+      const res = await apiFetch('/bookmarks');
+      const data: BookmarkResponse = await res.json();
       if (data.success) {
-        setDoctors(
-          data.data.map((b: any) => ({
-            bookmarkId: b._id,
-            doctorId: b.doctor._id,
-            fullName: b.doctor.fullName,
-            specializationName: b.doctor.specializationName,
-            profileImage: b.doctor.profileImage || DEFAULT_PHOTO,
-            city: b.doctor.city,
-            fees: b.doctor.fees,
-            consultation: b.doctor.consultation,
-          }))
-        );
+        setDoctors(data.data.map(mapBookmarkItem));
       }
     } finally {
       setRemoving(null);
+    }
+  };
+
+  const removeSavedLocation = async (locationId: string) => {
+    setRemovingLocationId(locationId);
+    const previous = savedLocations;
+    setSavedLocations((prev) => prev.filter((location) => location.serverId !== locationId));
+
+    try {
+      const res = await apiFetch(`/saved-locations/${locationId}`, { method: 'DELETE' });
+      const data = await res.json();
+
+      if (!data.success) {
+        throw new Error(data.message || 'Failed to delete saved location');
+      }
+
+      setActiveRouteLocationId((prev) => {
+        const deletedLocation = previous.find((item) => item.serverId === locationId);
+        if (!deletedLocation) return prev;
+        return prev === deletedLocation.id ? null : prev;
+      });
+    } catch (e) {
+      console.error('Failed to delete saved location, reverting:', e);
+      setSavedLocations(previous);
+    } finally {
+      setRemovingLocationId(null);
     }
   };
 
@@ -151,27 +298,27 @@ export default function SavedItemsContent() {
   // ── Map helpers (untouched) ───────────────────────────────
   const mapMarkers = useMemo(
     () =>
-      savedLocationsMock.map((location) => ({
+      savedLocations.map((location) => ({
         id: location.id,
         name: location.name,
         specialty: location.tag,
         lat: location.lat,
         lng: location.lng,
-        photo: location.image,
+        photo: location.image || buildLocationIconDataUrl(location.labelType),
         isSelected: activeRouteLocationId === location.id,
       })),
-    [activeRouteLocationId],
+    [activeRouteLocationId, savedLocations],
   );
 
   const routeTo = useMemo<[number, number] | null>(() => {
     if (!activeRouteLocationId) return null;
-    const location = savedLocationsMock.find((item) => item.id === activeRouteLocationId);
+    const location = savedLocations.find((item) => item.id === activeRouteLocationId);
     return location ? [location.lat, location.lng] : null;
-  }, [activeRouteLocationId]);
+  }, [activeRouteLocationId, savedLocations]);
 
   const activeLocation = useMemo(
-    () => savedLocationsMock.find((item) => item.id === activeRouteLocationId) ?? null,
-    [activeRouteLocationId],
+    () => savedLocations.find((item) => item.id === activeRouteLocationId) ?? null,
+    [activeRouteLocationId, savedLocations],
   );
 
   return (
@@ -289,24 +436,64 @@ export default function SavedItemsContent() {
             <h2 className="text-2xl font-bold text-text-base">Saved Locations</h2>
           </div>
           <span className="bg-surface text-primary px-3 py-1 rounded-full text-sm font-bold border border-primary/20">
-            {savedLocationsMock.length} Saved
+            {savedLocations.length} Saved
           </span>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {savedLocationsMock.map((location) => {
+        {loadingLocations && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {[...Array(2)].map((_, i) => (
+              <div
+                key={`saved-location-skeleton-${i}`}
+                className="h-56 animate-pulse rounded-xl border border-border bg-surface"
+              />
+            ))}
+          </div>
+        )}
+
+        {!loadingLocations && savedLocations.length === 0 && (
+          <div className="rounded-xl border border-dashed border-border px-6 py-8 text-center text-text-muted">
+            <span className="material-symbols-outlined text-4xl text-primary/40">location_on</span>
+            <p className="mt-3 text-sm font-medium">No saved locations yet</p>
+            <p className="mt-1 text-xs">Save locations from the doctor finder to see them here.</p>
+          </div>
+        )}
+
+        {!loadingLocations && savedLocations.length > 0 && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {savedLocations.map((location) => {
             const isRouting = activeRouteLocationId === location.id;
 
             return (
               <article
-                key={location.name}
+                key={location.serverId}
                 className="bg-surface rounded-xl border border-border overflow-hidden flex flex-col sm:flex-row shadow-sm hover:shadow-md transition-shadow"
               >
                 <div
-                  className="w-full sm:w-2/5 h-48 sm:h-auto bg-center bg-no-repeat bg-cover relative"
-                  style={{ backgroundImage: `url('${location.image}')` }}
+                  className={`w-full sm:w-2/5 h-48 sm:h-auto relative ${
+                    location.image
+                        ? 'bg-center bg-no-repeat bg-cover'
+                        : 'bg-linear-to-br from-primary/15 via-primary/10 to-secondary/10'
+                  }`}
+                  style={location.image ? { backgroundImage: `url('${location.image}')` } : undefined}
                 >
-                  <button className="absolute top-3 right-3 size-8 bg-card/90 rounded-full flex items-center justify-center text-error hover:scale-110 transition-transform shadow-sm sm:hidden">
+                  {!location.image && (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 text-primary">
+                      <span className="material-symbols-outlined text-5xl">
+                        {getLocationIcon(location.labelType)}
+                      </span>
+                      <span className="text-xs font-bold uppercase tracking-wider text-text-sub">
+                        {mapLocationLabel(location.labelType)}
+                      </span>
+                    </div>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => removeSavedLocation(location.serverId)}
+                    disabled={removingLocationId === location.serverId}
+                    className="absolute top-3 right-3 size-8 bg-card/90 rounded-full flex items-center justify-center text-error hover:scale-110 transition-transform shadow-sm disabled:opacity-50 sm:hidden"
+                  >
                     <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: "'FILL' 1" }}>
                       favorite
                     </span>
@@ -314,7 +501,12 @@ export default function SavedItemsContent() {
                 </div>
 
                 <div className="p-6 flex-1 flex flex-col justify-between relative">
-                  <button className="absolute top-4 right-4 size-8 bg-card rounded-full hidden sm:flex items-center justify-center text-error hover:scale-110 transition-transform">
+                  <button
+                    type="button"
+                    onClick={() => removeSavedLocation(location.serverId)}
+                    disabled={removingLocationId === location.serverId}
+                    className="absolute top-4 right-4 size-8 bg-card rounded-full hidden items-center justify-center text-error hover:scale-110 transition-transform disabled:opacity-50 sm:flex"
+                  >
                     <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: "'FILL' 1" }}>
                       favorite
                     </span>
@@ -344,15 +536,16 @@ export default function SavedItemsContent() {
                       <span className="material-symbols-outlined text-[18px]">{isRouting ? 'route' : 'directions'}</span>
                       {isRouting ? 'Route Active' : 'Directions'}
                     </button>
-                    <button className="px-4 py-2 bg-card text-text-base font-semibold rounded-lg border border-border hover:border-primary transition-colors text-sm">
+                    <button type="button" className="px-4 py-2 bg-card text-text-base font-semibold rounded-lg border border-border hover:border-primary transition-colors text-sm">
                       Details
                     </button>
                   </div>
                 </div>
               </article>
             );
-          })}
-        </div>
+            })}
+          </div>
+        )}
 
         {activeLocation && (
           <section className="mt-2 bg-surface border border-border rounded-xl overflow-hidden">

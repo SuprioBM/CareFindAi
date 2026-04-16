@@ -11,7 +11,7 @@ type AuthContextType = {
   user: User | null;
   loading: boolean;
   login: (user: User, accessToken: string) => void;
-  logout: () => Promise<void>;
+  logout: (silent?: boolean) => Promise<void>;
 };
 
 type Section =
