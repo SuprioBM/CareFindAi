@@ -28,13 +28,13 @@ services:
 
   frontend:
     build:
-      context: ./frontend     # must match your real folder name
+      context: ./frontend
       dockerfile: Dockerfile
     container_name: cse471_frontend
     ports:
       - "3000:3000"
-    environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:5000/api
+    env_file:
+    - ./frontend/.env.docker               # for server-side rewrites
     depends_on:
       - server
 

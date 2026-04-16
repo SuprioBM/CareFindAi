@@ -1,5 +1,6 @@
 import AuthBackground from "@/components/Themes/AuthBackground";
 import Header from "@/components/pageComponents/header";
+import { Suspense } from "react";
 
 export const metadata = {
   title: "CareFind — Account",
@@ -9,7 +10,9 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
   return (
     <div className="bg-surface text-text-base min-h-screen flex flex-col relative overflow-x-hidden antialiased">
       <AuthBackground />
-      <Header />
+      <Suspense fallback={<div className="h-16 border-b border-primary/10" />}>
+        <Header />
+      </Suspense>
 
       <main className="flex-1 flex items-center justify-center p-10 relative z-10">
         {children}

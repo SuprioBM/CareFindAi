@@ -1,9 +1,10 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import ThemeToggle from "../Themes/ThemeToggle";
 import { useAuth } from "@/authContext/authContext";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname } from "next/navigation";
 
 const navLinks = [
   { name: "Home", href: "/" },
@@ -15,10 +16,11 @@ const navLinks = [
 export default function Header() {
   const { user, logout, loading } = useAuth();
   const pathname = usePathname();
-  const searchParams = useSearchParams();
+  const [fullPath, setFullPath] = useState(pathname);
 
-// optional: preserve query string too
-const fullPath = pathname + (searchParams.toString() ? `?${searchParams.toString()}` : "");
+  useEffect(() => {
+    setFullPath(`${window.location.pathname}${window.location.search}`);
+  }, [pathname]);
 
 
   return (
