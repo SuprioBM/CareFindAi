@@ -109,6 +109,7 @@ export async function getAllDoctors(req, res) {
  * Fetches a single doctor record by MongoDB id.
  */
 export async function getDoctorById(req, res) {
+  
   try {
     const doctor = await Doctor.findById(req.params.id)
       .populate("specialization")

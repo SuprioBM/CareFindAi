@@ -1,18 +1,20 @@
 import SavedLocation from "../models/savedLocation.model.js";
 
-export async function createSavedLocation(req, res) {
+export async function createSavedLocation(req, res) {  
   try {
     const savedLocation = await SavedLocation.create({
       user: req.user.id,
       ...req.body,
-    });
-
+    });  
+      
     return res.status(201).json({
       success: true,
       message: "Location saved successfully",
       data: savedLocation,
     });
   } catch (error) {
+    console.log(error);
+    
     return res.status(500).json({
       success: false,
       message: "Failed to save location",

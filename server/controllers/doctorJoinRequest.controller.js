@@ -2,15 +2,18 @@ import DoctorJoinRequest from "../models/doctorJoinRequest.model.js";
 import Doctor from "../models/doctor.model.js";
 
 export async function createDoctorJoinRequest(req, res) {
+  
   try {
     const request = await DoctorJoinRequest.create(req.body);
-
+    
+   
     return res.status(201).json({
       success: true,
       message: "Doctor join request submitted successfully",
       data: request,
     });
   } catch (error) {
+    
     return res.status(500).json({
       success: false,
       message: "Failed to submit doctor join request",
@@ -76,7 +79,8 @@ export async function getDoctorJoinRequestById(req, res) {
 export async function reviewDoctorJoinRequest(req, res) {
   try {
     const { status, rejectionReason } = req.body;
-
+    console.log(status,rejectionReason);
+    
     if (!["approved", "rejected"].includes(status)) {
       return res.status(400).json({
         success: false,
@@ -135,6 +139,8 @@ export async function reviewDoctorJoinRequest(req, res) {
       data: request,
     });
   } catch (error) {
+    console.log(error);
+    
     return res.status(500).json({
       success: false,
       message: "Failed to review doctor join request",

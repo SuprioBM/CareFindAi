@@ -5,7 +5,8 @@ import Link from 'next/link';
 import VerifyEmailModal from '../../../components/forms/VerifyModal';
 import { useAuth } from '@/authContext/authContext';
 import { apiFetch } from '@/lib/api';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
+
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
@@ -24,6 +25,11 @@ export default function LoginPage() {
 
   const { login } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+ const redirect = searchParams.get("redirect") || "/";
+  
+
+
 
 const tryLogin = async (loginEmail: string, loginPassword: string) => {
   const res = await apiFetch('/auth/login', {
@@ -56,7 +62,7 @@ const tryLogin = async (loginEmail: string, loginPassword: string) => {
   }
 
   login(data.user, data.accessToken);
-  router.push('/');
+  router.push(redirect || '/');
 };
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -217,7 +223,8 @@ const tryLogin = async (loginEmail: string, loginPassword: string) => {
       <div className="mt-6 grid grid-cols-1 gap-3">
         <button
           onClick={() => {
-            window.location.href = `${process.env.NEXT_PUBLIC_API_URL}/auth/google/start`;
+        window.location.href =
+    `${process.env.NEXT_PUBLIC_API_URL}/auth/google/start?redirect=` +encodeURIComponent(redirect);
           }}
           className="inline-flex justify-center items-center py-2.5 px-4 border border-border rounded-xl bg-surface text-sm font-medium text-text-sub hover:bg-section-teal hover:border-primary/30 transition-colors"
         >

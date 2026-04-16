@@ -3,6 +3,7 @@
 import Link from "next/link";
 import ThemeToggle from "../Themes/ThemeToggle";
 import { useAuth } from "@/authContext/authContext";
+import { usePathname, useSearchParams } from "next/navigation";
 
 const navLinks = [
   { name: "Home", href: "/" },
@@ -13,6 +14,12 @@ const navLinks = [
 
 export default function Header() {
   const { user, logout, loading } = useAuth();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+// optional: preserve query string too
+const fullPath = pathname + (searchParams.toString() ? `?${searchParams.toString()}` : "");
+
 
   return (
     <header className="w-full border-b border-primary/10 px-8 py-4 bg-surface fixed top-0 z-50">
@@ -49,7 +56,7 @@ export default function Header() {
             <>
               {!user ? (
                 <Link
-                  href="/login"
+                  href={`/login?redirect=${encodeURIComponent(fullPath)}`}
                   className="flex items-center justify-center rounded-xl h-10 px-6 bg-primary text-white text-sm font-bold shadow-md hover:bg-primary-hover transition-colors"
                 >
                   Sign In

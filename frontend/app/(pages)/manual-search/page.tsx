@@ -1,36 +1,19 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from "next/navigation";
 import { fetchNearbyDoctors } from '@/lib/findnearByDoctors';
+import { apiFetch } from '@/lib/api';
+import SavedLocationModal from '@/components/ModalComponent/SavedLocationModal';
 
-type LocationResult = {
-  code: string;
-  area: string;
-  details: string;
-  value: string;
+type SavedLocation = {
+  _id: string;
+  label: "home" | "office" | "other";
+  customLabel?: string;
+  address: string;
+  latitude: number;
+  longitude: number;
 };
-
-const locationResults: LocationResult[] = [
-  {
-    code: 'DH',
-    area: 'Dhanmondi',
-    details: '8 Clinics, 3 General Hospitals nearby',
-    value: 'dhanmondi',
-  },
-  {
-    code: 'GU',
-    area: 'Gulshan',
-    details: '12 Clinics, 5 Specialty Centers nearby',
-    value: 'gulshan',
-  },
-  {
-    code: 'BA',
-    area: 'Banani',
-    details: '6 Clinics, 2 Diagnostic Centers nearby',
-    value: 'banani',
-  },
-];
 
 export default function ManualSearchPage() {
   const searchParams = useSearchParams();
@@ -38,26 +21,41 @@ export default function ManualSearchPage() {
 
   const specialist = searchParams.get("specialist") || "";
 
-  // ✅ structured inputs (NEW)
-  const [city, setCity] = useState("Dhaka");
-  const [areaInput, setAreaInput] = useState("");
-  const [zip, setZip] = useState("");
+  // ── MANUAL INPUTS ─────────────────────
+  const [area, setArea] = useState("");
+  const [zipcode, setZipcode] = useState("");
+  const [division, setDivision] = useState("");
+  const [country, setCountry] = useState("Bangladesh");
 
-  const [selectedLocation, setSelectedLocation] = useState('dhanmondi');
+  // ── SAVED LOCATIONS ───────────────────
+  const [savedLocations, setSavedLocations] = useState<SavedLocation[]>([]);
 
-  const selectedLocationLabel = useMemo(() => {
-    const item = locationResults.find((location) => location.value === selectedLocation);
-    return item ? `${item.area}, Bangladesh` : 'Select an area';
-  }, [selectedLocation]);
+  // ── MODAL STATE (FIXED MISSING) ───────
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalCoords, setModalCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [modalAddress, setModalAddress] = useState("");
 
-  // ✅ OpenStreetMap geocoding
+  // ── LOAD SAVED LOCATIONS ──────────────
+  useEffect(() => {
+    async function load() {
+      try {
+        const res = await apiFetch('/saved-locations');
+        const data = await res.json();
+        if (data.success) setSavedLocations(data.data);
+      } catch (err) {
+        console.error(err);
+      }
+    }
+    load();
+  }, []);
+
+  // ── OPENSTREETMAP GEOCODING ───────────
   async function getCoordinates(address: string) {
     const res = await fetch(
       `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(address)}`
     );
 
     const data = await res.json();
-
     if (!data?.length) return null;
 
     return {
@@ -66,34 +64,15 @@ export default function ManualSearchPage() {
     };
   }
 
-  // ✅ CONTINUE FLOW
+  // ── MANUAL CONTINUE ────────────────────
   const handleContinue = async () => {
-  const selected = locationResults.find(
-    (loc) => loc.value === selectedLocation
-  );
+    const address = [area, zipcode, division, country]
+      .filter(Boolean)
+      .join(", ");
 
-  if (!selected) return;
-
-  const address = [
-    areaInput || selected.area,
-    city,
-    zip,
-    "Bangladesh",
-  ]
-    .filter(Boolean)
-    .join(", ");
-
-  try {
-
-    // ⚠️ we still need geocoding (important)
     const coords = await getCoordinates(address);
+    if (!coords) return;
 
-    if (!coords) {
-      console.log("Location not found");
-      return;
-    }
-
-    // 🔁 second call with real coords
     await fetchNearbyDoctors({
       latitude: coords.lat,
       longitude: coords.lng,
@@ -102,129 +81,152 @@ export default function ManualSearchPage() {
     });
 
     router.push("/find_nearby_doctors");
-  } catch (err) {
-    console.error(err);
-  }
-};
+  };
+
+  // ── CLICK SAVED LOCATION ───────────────
+  const handleSavedLocationClick = async (loc: SavedLocation) => {
+    await fetchNearbyDoctors({
+      latitude: loc.latitude,
+      longitude: loc.longitude,
+      radius: 20,
+      specialization: specialist,
+    });
+
+    router.push("/find_nearby_doctors");
+  };
+
+  // ── SAVE LOCATION ───────────────────────
+  const handleSaveLocation = async (data: any) => {
+    const res = await apiFetch('/saved-locations', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+
+    const json = await res.json();
+
+    if (json.success) {
+      setSavedLocations(prev => [json.data, ...prev]);
+    }
+  };
 
   return (
-    <div className="min-h-screen bg-surface text-text-base px-4 sm:px-6 lg:px-8 py-8">
+    <div className="min-h-screen bg-surface text-text-base px-4 py-8">
 
-      {/* HEADER (UNCHANGED STYLE) */}
-      <section className="w-full max-w-4xl mx-auto mb-8">
-        <div className="bg-amber-900/20 border border-amber-500/50 rounded-xl p-4 flex items-center gap-4 text-amber-200">
-          <span className="material-symbols-outlined text-amber-400">info</span>
-          <p className="text-sm font-medium">
-            <span className="font-bold">Manual location required.</span>{' '}
-            Please provide your area details to find nearby doctors and hospitals.
-          </p>
-        </div>
-      </section>
-
-      {/* TITLE (UNCHANGED) */}
+      {/* HEADER */}
       <header className="text-center mb-10 max-w-4xl mx-auto">
-        <h1 className="text-3xl md:text-4xl font-bold tracking-tight">
-          Choose Your Location
-        </h1>
-        <p className="mt-3 text-text-sub max-w-lg mx-auto">
-          Help us connect you with the right healthcare professionals.
+        <h1 className="text-3xl font-bold">Choose Your Location</h1>
+        <p className="mt-3 text-text-sub">
+          Use saved location or enter manually
         </p>
       </header>
 
-      <main className="w-full max-w-4xl mx-auto space-y-8">
+      <main className="max-w-4xl mx-auto space-y-8">
 
-        {/* ✅ STRUCTURED INPUT (REPLACED OLD SEARCH UI) */}
-        <div className="bg-card border border-border rounded-2xl p-6 md:p-8 shadow-2xl space-y-4">
+        {/* ── SAVED LOCATIONS ───────────────── */}
+        {savedLocations.length > 0 && (
+          <section>
+            <h3 className="text-lg font-semibold mb-3">Saved Locations</h3>
 
-          <input
-            className="block w-full p-4 bg-surface border border-border rounded-xl"
-            placeholder="City (e.g. Dhaka)"
-            value={city}
-            onChange={(e) => setCity(e.target.value)}
-          />
-
-          <input
-            className="block w-full p-4 bg-surface border border-border rounded-xl"
-            placeholder="Area (e.g. Dhanmondi, Gulshan)"
-            value={areaInput}
-            onChange={(e) => setAreaInput(e.target.value)}
-          />
-
-          <input
-            className="block w-full p-4 bg-surface border border-border rounded-xl"
-            placeholder="ZIP Code (optional)"
-            value={zip}
-            onChange={(e) => setZip(e.target.value)}
-          />
-        </div>
-
-        {/* LOCATION LIST (UNCHANGED CORE UX) */}
-        <section className="space-y-4">
-          <h3 className="text-lg font-semibold flex items-center gap-2">
-            <span className="material-symbols-outlined text-primary">location_on</span>
-            Suggested Areas
-          </h3>
-
-          <div className="space-y-3">
-            {locationResults.map((result) => {
-              const isSelected = selectedLocation === result.value;
-
-              return (
-                <label
-                  key={result.value}
-                  className={`flex items-center justify-between p-4 bg-card border rounded-xl cursor-pointer transition-all ${
-                    isSelected
-                      ? 'border-primary shadow-[0_0_0_1px_rgba(20,184,166,0.35)]'
-                      : 'border-border hover:border-primary/50'
-                  }`}
+            <div className="space-y-3">
+              {savedLocations.map((loc) => (
+                <button
+                  key={loc._id}
+                  onClick={() => handleSavedLocationClick(loc)}
+                  className="w-full text-left p-4 rounded-xl border border-border bg-card hover:border-primary transition"
                 >
-                  <div className="flex items-center gap-4">
-                    <div className="h-10 w-10 bg-surface rounded-lg flex items-center justify-center">
-                      <span className="text-secondary font-bold">{result.code}</span>
-                    </div>
-                    <div>
-                      <p className="font-semibold">{result.area}</p>
-                      <p className="text-xs text-text-muted">{result.details}</p>
-                    </div>
+                  <div className="flex items-center gap-2 font-semibold">
+                    <span>
+                      {loc.label === "home"
+                        ? "🏠 Home"
+                        : loc.label === "office"
+                        ? "🏢 Office"
+                        : "📍 Other"}
+                    </span>
                   </div>
 
-                  <input
-                    checked={isSelected}
-                    className="h-5 w-5 accent-primary"
-                    type="radio"
-                    onChange={() => setSelectedLocation(result.value)}
-                  />
-                </label>
-              );
-            })}
-          </div>
+                  <p className="text-sm text-text-muted mt-1">
+                    {loc.customLabel ? `${loc.customLabel} - ` : ""}
+                    {loc.address}
+                  </p>
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* ── MANUAL INPUT ──────────────────── */}
+        <section className="bg-card border border-border rounded-2xl p-6 space-y-4">
+
+          <input
+            className="input"
+            placeholder="Area"
+            value={area}
+            onChange={(e) => setArea(e.target.value)}
+          />
+
+          <input
+            className="input"
+            placeholder="ZIP Code"
+            value={zipcode}
+            onChange={(e) => setZipcode(e.target.value)}
+          />
+
+          <input
+            className="input"
+            placeholder="Division"
+            value={division}
+            onChange={(e) => setDivision(e.target.value)}
+          />
+
+          <input
+            className="input"
+            placeholder="Country"
+            value={country}
+            onChange={(e) => setCountry(e.target.value)}
+          />
         </section>
 
-        {/* SELECTED LOCATION (UNCHANGED UI) */}
-        <div className="bg-primary/10 border-2 border-primary border-dashed rounded-2xl p-6 flex justify-between items-center">
-          <div>
-            <p className="text-xs uppercase text-primary font-bold">
-              Selected Location
-            </p>
-            <p className="text-lg font-bold">{selectedLocationLabel}</p>
-          </div>
-        </div>
+        {/* ── SAVE LOCATION BUTTON ───────────── */}
+        <button
+          onClick={async () => {
+            const address = [area, zipcode, division, country]
+              .filter(Boolean)
+              .join(", ");
 
-        {/* ACTIONS */}
-        <div className="flex justify-end">
-          <button
-            onClick={handleContinue}
-            className="px-10 py-3 bg-primary hover:bg-primary-hover text-white rounded-xl font-bold"
-          >
-            Continue
-          </button>
-        </div>
+            const coords = await getCoordinates(address);
+            if (!coords) return;
+
+            setModalCoords(coords);
+            setModalAddress(address);
+            setModalOpen(true);
+          }}
+          className="w-full bg-section-teal border border-primary text-primary py-3 rounded-xl"
+        >
+          Save This Location
+        </button>
+
+        {/* ── CONTINUE ──────────────────────── */}
+        <button
+          onClick={handleContinue}
+          className="w-full bg-primary text-white py-3 rounded-xl font-semibold"
+        >
+          Continue with Manual Location
+        </button>
 
       </main>
 
-      <footer className="mt-16 text-center text-text-muted text-sm">
-        <p>© 2026 CareFind Health-Tech Solutions. All rights reserved.</p>
-      </footer>
+      {/* ── MODAL ─────────────────────────── */}
+      {modalCoords && (
+        <SavedLocationModal
+          open={modalOpen}
+          onClose={() => setModalOpen(false)}
+          address={modalAddress}
+          latitude={modalCoords.lat}
+          longitude={modalCoords.lng}
+          onSave={handleSaveLocation}
+        />
+      )}
+
     </div>
   );
 }

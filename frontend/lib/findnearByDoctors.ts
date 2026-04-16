@@ -28,9 +28,8 @@ export async function fetchNearbyDoctors(params: NearbyDoctorParams) {
   if (!res.ok) {
     throw new Error(parsed?.message || "Failed to fetch nearby doctors");
   }
-  console.log(parsed);
-  
 
+  // ✅ keep sessionStorage (no change)
   sessionStorage.setItem(
     "carefind_nearby_doctors",
     JSON.stringify({
@@ -42,4 +41,7 @@ export async function fetchNearbyDoctors(params: NearbyDoctorParams) {
       doctors: parsed?.data ?? [],
     })
   );
+
+  // ✅ ADD THIS
+  return parsed?.data ?? [];
 }

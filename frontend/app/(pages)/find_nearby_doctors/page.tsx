@@ -4,6 +4,10 @@ import { useState, useEffect, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import { apiFetch } from '@/lib/api';
 import { useAuth } from '@/authContext/authContext';
+import SavedLocationModal from "@/components/ModalComponent/SavedLocationModal";
+import SavedLocationBar from "@/components/ModalComponent/SavedLocationBar";
+import { useSavedLocations,SavedLocation } from "@/lib/useSavedLocations";
+import { useRouter } from 'next/navigation';
 
 // types for typesctipt
 interface SessionDoctor {
@@ -87,6 +91,21 @@ export default function DoctorDiscoveryPage() {
   const [sessionLoaded, setSessionLoaded] = useState(false);
   const { user, loading } = useAuth();
 
+  const {
+  locations,
+  createLocation,
+  deleteLocation,
+} = useSavedLocations();
+
+const [activeLocationId, setActiveLocationId] = useState<string | null>(null);
+
+const [modalOpen, setModalOpen] = useState(false);
+const [modalData, setModalData] = useState<{
+  address: string;
+  lat: number;
+  lng: number;
+} | null>(null);
+
   // ── Load session data ───────────────────────────────────────
   useEffect(() => {
     const stored = sessionStorage.getItem('carefind_nearby_doctors');
@@ -111,6 +130,26 @@ export default function DoctorDiscoveryPage() {
     setSessionLoaded(true);
   }, []);
 
+function openSaveModal() {
+  if (!userLocation) return;
+
+  setModalData({
+    address: "Current Location", // later you can replace with reverse geocode
+    lat: userLocation[0],
+    lng: userLocation[1],
+  });
+
+  setModalOpen(true);
+}
+
+async function handleSaveLocation(payload: any) {
+  await createLocation(payload);
+}
+
+function handleSelectSavedLocation(loc: SavedLocation) {
+  setUserLocation([loc.latitude, loc.longitude]);
+  setActiveLocationId(loc._id);
+}
 
 useEffect(() => {
   if (loading || !user) return;
@@ -300,6 +339,18 @@ useEffect(() => {
         {/* ── Left panel ── */}
         <div className="flex flex-col w-full lg:w-[620px] xl:w-[680px] shrink-0 border-r border-border bg-card z-10 flex-1 lg:flex-none">
           <div className="p-5 border-b border-border shrink-0">
+            {/* Saved Locations Bar */}
+        {user && (
+          <div className="mt-3">
+            <SavedLocationBar
+              locations={locations}
+              activeId={activeLocationId ?? undefined}
+              onAdd={openSaveModal}
+              onSelect={handleSelectSavedLocation}
+              onDelete={deleteLocation}
+            />
+          </div>
+        )}
             <h1 className="text-2xl font-bold text-text-base mb-1">Find a Doctor</h1>
             <p className="text-text-muted text-sm mb-4">
               {locLoading
@@ -315,17 +366,6 @@ useEffect(() => {
                 </button>
               )}
 
-              {['Specialty', 'Availability', 'Insurance'].map((f) => (
-                <button
-                  key={f}
-                  className="flex h-8 items-center gap-1 rounded-full border border-border bg-surface text-text-sub px-4 text-sm font-medium hover:bg-section-teal transition-colors"
-                >
-                  {f}
-                  <span className="material-symbols-outlined text-[18px]">
-                    keyboard_arrow_down
-                  </span>
-                </button>
-              ))}
             </div>
 
             <div className="flex items-center justify-between text-sm">
@@ -398,6 +438,14 @@ useEffect(() => {
           )}
         </div>
       </main>
+      <SavedLocationModal
+      open={modalOpen}
+      onClose={() => setModalOpen(false)}
+      address={modalData?.address || ""}
+      latitude={modalData?.lat || 0}
+      longitude={modalData?.lng || 0}
+      onSave={handleSaveLocation}
+    />
     </div>
   );
 }
@@ -422,6 +470,7 @@ function DoctorCard({
   onFavorite,
   onGetDirections,
 }: CardProps) {
+  const router = useRouter();
   return (
     <div
       onClick={onSelect}
@@ -499,7 +548,24 @@ function DoctorCard({
           <span className="inline-flex items-center rounded bg-section-teal px-2 py-1 text-xs font-medium text-text-sub border border-border">
             {doc.insurance}
           </span>
-
+            <button
+  onClick={() => router.push(`/find_nearby_doctors/${doc.id}`)}
+  style={{
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: '6px 10px',
+    borderRadius: '10px',
+    border: '1px solid #0d9488',
+    background: 'rgba(13,148,136,0.08)',
+    color: '#0d9488',
+    fontSize: '12px',
+    fontWeight: 600,
+    cursor: 'pointer',
+  }}
+>
+  View Profile
+</button>
           {isSelected && (
             <button
               onClick={(e) => {
@@ -517,6 +583,7 @@ function DoctorCard({
               </span>
               {isRouting ? 'Route active' : 'Get Directions'}
             </button>
+            
           )}
         </div>
       </div>

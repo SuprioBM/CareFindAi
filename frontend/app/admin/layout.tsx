@@ -1,4 +1,3 @@
-import Header from "@/components/pageComponents/header";
 
 export const metadata = {
   title: 'CareFind Admin',

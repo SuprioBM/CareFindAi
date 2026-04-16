@@ -32,7 +32,7 @@ const savedDoctors = [
 
 export default function DashboardPage() {
   return (
-    <div className="bg-surface text-text-base h-screen flex flex-col overflow-hidden antialiased">
+    <div className="bg-surface text-text-base min-h-screen flex flex-col antialiased">
 
       {/* ── Header ── */}
       <header className="flex items-center justify-between border-b border-border bg-surface px-10 py-4 shrink-0 z-10">
@@ -153,6 +153,27 @@ export default function DashboardPage() {
                       </Link>
                     </div>
                   </div>
+                ))}
+              </div>
+            </section>
+
+              <section>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-bold flex items-center gap-2">
+                  <span className="material-symbols-outlined text-primary">history</span>
+                  Add Doctors
+                </h2>
+                <Link href="/dashboard/doctor_add" className="text-sm font-medium text-primary hover:underline">add Doctor</Link>
+              </div>
+              <div className="flex gap-3 flex-wrap">
+                {previousSearches.map(({ icon, label }) => (
+                  <button
+                    key={label}
+                    className="flex items-center justify-center gap-2 rounded-full border border-border bg-card/50 backdrop-blur-md hover:border-primary/50 hover:bg-card transition-all px-4 py-2 text-sm font-medium text-text-base"
+                  >
+                    <span className="material-symbols-outlined text-[18px] text-primary">{icon}</span>
+                    {label}
+                  </button>
                 ))}
               </div>
             </section>

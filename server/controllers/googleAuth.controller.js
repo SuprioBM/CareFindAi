@@ -11,6 +11,7 @@ const OAUTH_CODE_TTL = 60;
 
 export async function googleStart(req, res) {
   const redis = getRedis();
+  const redirect = req.query.redirect || "/";
 
   const state = crypto.randomBytes(16).toString("hex");
   await redis.set(
@@ -18,6 +19,7 @@ export async function googleStart(req, res) {
     JSON.stringify({
       ip: req.ip,
       ua: req.headers["user-agent"],
+      redirect,
     }),
     { EX: STATE_TTL }, // 10 minutes
   );
@@ -46,6 +48,7 @@ export async function googleCallback(req, res) {
       }
 
       const stored = JSON.parse(stateStr);
+      const redirectPath = stored.redirect || "/";
 
       // Verify same browser
       if (stored.ip !== req.ip || stored.ua !== req.headers["user-agent"]) {
@@ -145,7 +148,7 @@ export async function googleCallback(req, res) {
     });
 
     // 7) Redirect to frontend callback
-    const client = process.env.CLIENT_ORIGIN || "http://localhost:3000";
+    const client = `${process.env.CLIENT_ORIGIN}/${redirectPath}` || `http://localhost:3000/${redirectPath}`;
     return res.redirect(`${client}`);
   } catch (err) {
     console.error("googleCallback error:", err);

@@ -75,6 +75,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     await apiFetch("/auth/logout", { method: "POST" });
+    sessionStorage.clear();
     setUser(null);
     clearAccessToken();
   };

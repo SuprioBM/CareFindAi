@@ -39,7 +39,7 @@ router.get("/manual/search", manualSearch);
 router.get("/nearby/search", getNearbyDoctors);
 
 // Get, update, or delete a specific doctor by ID
-router.get("/:id", getDoctorById);
+router.get("/:id",protect, getDoctorById);
 router.patch("/:id",protect, requireAdmin, updateDoctor);
 router.delete("/:id",protect, requireAdmin, deleteDoctor);
 

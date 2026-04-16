@@ -6,13 +6,14 @@ import {
   updateSavedLocation,
   deleteSavedLocation,
 } from "../controllers/savedLocation.controller.js";
+import { protect } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
-router.post("/", createSavedLocation);
-router.get("/", getMySavedLocations);
-router.get("/:id", getSavedLocationById);
-router.patch("/:id", updateSavedLocation);
-router.delete("/:id", deleteSavedLocation);
+router.post("/",protect, createSavedLocation);
+router.get("/", protect, getMySavedLocations);
+router.get("/:id", protect, getSavedLocationById);
+router.patch("/:id", protect, updateSavedLocation);
+router.delete("/:id", protect, deleteSavedLocation);
 
 export default router;

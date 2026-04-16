@@ -9,8 +9,8 @@ const navItems = [
   { href: '/dashboard/saved_items', icon: 'favorite', label: 'Saved Items' },
   { href: '/symptoms', icon: 'monitoring', label: 'Symptom Analyzer' },
   { href: '/manual-search', icon: 'travel_explore', label: 'Manual Search' },
+  { href: '/dashboard/doctor_add' , icon: 'person_add', label: 'Add Doctor' },
 ];
-
 export default function DashboardSidebar() {
   const pathname = usePathname();
 
