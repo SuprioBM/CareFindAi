@@ -1,10 +1,37 @@
 'use client';
 
+/**
+ * Specialization Management Component
+ * 
+ * Allows administrators to create, read, update, and delete medical specialization categories.
+ * These specializations are used by the AI recommendation system to categorize doctors and
+ * provide relevant recommendations to patients based on their symptoms.
+ * 
+ * Features:
+ * - Add new specializations with custom icons and descriptions
+ * - Edit existing specializations
+ * - Delete specializations (with warnings if doctors are assigned)
+ * - Filter and search specializations
+ * - Pagination support for large lists
+ * - Status management (Active/Inactive)
+ */
+
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { apiFetch } from '@/lib/api';
 import Pagination from '@/components/pageComponents/Pagination';
 
 // ── Types ─────────────────────────────────────────────────────
+
+/**
+ * Represents a medical specialization category
+ * @property _id - MongoDB document ID
+ * @property name - Display name (e.g., "Cardiologist")
+ * @property slug - URL-friendly identifier (e.g., "cardiologist")
+ * @property description - Detailed description of the specialization
+ * @property icon - Material Design icon name
+ * @property isActive - Whether this specialization is available for use
+ * @property doctorCount - Number of doctors assigned to this specialization
+ */
 interface Specialization {
   _id: string;
   name: string;
@@ -15,6 +42,9 @@ interface Specialization {
   doctorCount: number;
 }
 
+/**
+ * Form state for creating/editing specializations
+ */
 interface FormState {
   name: string;
   slug: string;
@@ -23,6 +53,7 @@ interface FormState {
   isActive: boolean;
 }
 
+/** Default empty form state for add/edit modals */
 const EMPTY_FORM: FormState = {
   name: '',
   slug: '',
@@ -31,27 +62,45 @@ const EMPTY_FORM: FormState = {
   isActive: true,
 };
 
-// auto-generate slug from name
+/**
+ * Converts a name string to a URL-friendly slug
+ * Example: "Cardiology Specialist" → "cardiology-specialist"
+ * @param value - The string to convert
+ * @returns Lowercase slug with hyphens, no special characters
+ */
 function toSlug(value: string) {
   return value.toLowerCase().trim().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
 }
 
 // ── Add Modal ─────────────────────────────────────────────────
+
+/**
+ * Props for add/edit modals
+ */
 interface ModalProps {
   onClose: () => void;
   onCreated: (spec: Specialization) => void;
 }
 
+/**
+ * Modal component for adding a new specialization
+ * Features:
+ * - Auto-generates slug from name
+ * - Validates required fields before submission
+ * - Shows error messages on failure
+ * - Prevents backdrop click from closing the modal
+ */
 function AddSpecializationModal({ onClose, onCreated }: ModalProps) {
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [slugEdited, setSlugEdited] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
+  /** Updates form field and auto-generates slug if name changes and user hasn't manually edited slug */
   const set = (field: keyof FormState, value: string | boolean) => {
     setForm((prev) => {
       const next = { ...prev, [field]: value };
-      // auto-sync slug unless user manually edited it
+      // Auto-sync slug unless user manually edited it
       if (field === 'name' && !slugEdited) {
         next.slug = toSlug(value as string);
       }
@@ -59,6 +108,7 @@ function AddSpecializationModal({ onClose, onCreated }: ModalProps) {
     });
   };
 
+  /** Validates form and submits new specialization to API */
   const handleSubmit = async () => {
     if (!form.name.trim() || !form.slug.trim()) {
       setError('Name and slug are required.');
@@ -80,6 +130,7 @@ function AddSpecializationModal({ onClose, onCreated }: ModalProps) {
         return;
       }
 
+      // Notify parent component of successful creation
       onCreated(data.data);
       onClose();
     } catch (e) {
@@ -89,7 +140,7 @@ function AddSpecializationModal({ onClose, onCreated }: ModalProps) {
     }
   };
 
-  // close on backdrop click
+  /** Closes modal when clicking on backdrop overlay */
   const handleBackdrop = (e: React.MouseEvent<HTMLDivElement>) => {
     if (e.target === e.currentTarget) onClose();
   };
@@ -246,12 +297,20 @@ function AddSpecializationModal({ onClose, onCreated }: ModalProps) {
 }
 
 // ── Edit Modal ────────────────────────────────────────────────
+
+/**
+ * Props for edit modal component
+ */
 interface EditModalProps {
   spec: Specialization;
   onClose: () => void;
   onUpdated: (spec: Specialization) => void;
 }
 
+/**
+ * Modal component for editing an existing specialization
+ * Pre-populates form with current specialization data and allows updates
+ */
 function EditSpecializationModal({ spec, onClose, onUpdated }: EditModalProps) {
   const [form, setForm] = useState<FormState>({
     name: spec.name,
@@ -263,9 +322,11 @@ function EditSpecializationModal({ spec, onClose, onUpdated }: EditModalProps) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
+  /** Updates form field state */
   const set = (field: keyof FormState, value: string | boolean) =>
     setForm((prev) => ({ ...prev, [field]: value }));
 
+  /** Validates form and submits updated specialization data to API */
   const handleSubmit = async () => {
     if (!form.name.trim() || !form.slug.trim()) {
       setError('Name and slug are required.');
@@ -280,6 +341,7 @@ function EditSpecializationModal({ spec, onClose, onUpdated }: EditModalProps) {
       });
       const data = await res.json();
       if (!data.success) { setError(data.message || 'Failed to update.'); return; }
+      // Notify parent component of successful update
       onUpdated({ ...spec, ...data.data });
       onClose();
     } catch {
@@ -289,6 +351,7 @@ function EditSpecializationModal({ spec, onClose, onUpdated }: EditModalProps) {
     }
   };
 
+  /** Closes modal when clicking on backdrop overlay */
   const handleBackdrop = (e: React.MouseEvent<HTMLDivElement>) => {
     if (e.target === e.currentTarget) onClose();
   };
@@ -376,16 +439,25 @@ function EditSpecializationModal({ spec, onClose, onUpdated }: EditModalProps) {
 }
 
 // ── Delete Confirm Modal ──────────────────────────────────────
+
+/**
+ * Props for delete confirmation modal
+ */
 interface DeleteModalProps {
   spec: Specialization;
   onClose: () => void;
   onDeleted: (id: string) => void;
 }
 
+/**
+ * Confirmation modal for deleting a specialization
+ * Shows warning if doctors are assigned to this specialization
+ */
 function DeleteSpecializationModal({ spec, onClose, onDeleted }: DeleteModalProps) {
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState('');
 
+  /** Submits delete request to API and notifies parent on success */
   const handleDelete = async () => {
     setDeleting(true);
     setError('');
@@ -393,6 +465,7 @@ function DeleteSpecializationModal({ spec, onClose, onDeleted }: DeleteModalProp
       const res = await apiFetch(`/specializations/${spec._id}`, { method: 'DELETE' });
       const data = await res.json();
       if (!data.success) { setError(data.message || 'Failed to delete.'); return; }
+      // Notify parent component of successful deletion
       onDeleted(spec._id);
       onClose();
     } catch {
@@ -402,6 +475,7 @@ function DeleteSpecializationModal({ spec, onClose, onDeleted }: DeleteModalProp
     }
   };
 
+  /** Closes modal when clicking on backdrop overlay */
   const handleBackdrop = (e: React.MouseEvent<HTMLDivElement>) => {
     if (e.target === e.currentTarget) onClose();
   };
@@ -430,6 +504,7 @@ function DeleteSpecializationModal({ spec, onClose, onDeleted }: DeleteModalProp
             <span className="font-bold text-text-base">"{spec.name}"</span>?{' '}
             This action cannot be undone.
           </p>
+          {/* Show warning if doctors are assigned to this specialization */}
           {spec.doctorCount > 0 && (
             <div className="mt-4 flex items-start gap-2 p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-600 text-sm">
               <span className="material-symbols-outlined text-[18px] shrink-0 mt-0.5">warning</span>
@@ -461,17 +536,27 @@ function DeleteSpecializationModal({ spec, onClose, onDeleted }: DeleteModalProp
 }
 
 // ── Specialization Card ───────────────────────────────────────
+
+/**
+ * Props for specialization card component
+ */
 interface CardProps extends Specialization {
   onEdit: () => void;
   onDelete: () => void;
 }
 
+/**
+ * Individual specialization card component
+ * Displays specialization info and provides edit/delete actions via dropdown menu
+ * Shows doctor count and active status
+ */
 function SpecializationCard({ _id, name, icon, description, doctorCount, isActive, onEdit, onDelete }: CardProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  // A specialization is effectively active only if it's marked active AND has assigned doctors
   const effectiveActive = isActive && doctorCount > 0;
 
-  // close on outside click
+  // Close dropdown menu when clicking outside of it
   useEffect(() => {
     if (!menuOpen) return;
     const handler = (e: MouseEvent) => {
@@ -581,17 +666,38 @@ function SpecializationCard({ _id, name, icon, description, doctorCount, isActiv
 }
 
 // ── Main Component ────────────────────────────────────────────
-export default function Specializations() {
-  const [specializations, setSpecializations] = useState<Specialization[]>([]);
-  const [fetching, setFetching] = useState(true);
-  const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('All Statuses');
-  const [showModal, setShowModal] = useState(false);
-  const [editTarget, setEditTarget] = useState<Specialization | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<Specialization | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
-  const PAGE_SIZE = 8; // 8 cards per page (4-col grid × 2 rows), last slot reserved for "Add" card
 
+/**
+ * Main specialization management component
+ * 
+ * Responsibilities:
+ * - Fetch and display all specializations
+ * - Handle create, read, update, delete operations
+ * - Manage search and filtering
+ * - Handle pagination
+ * - Coordinate modal states
+ */
+export default function Specializations() {
+  // All specializations loaded from API
+  const [specializations, setSpecializations] = useState<Specialization[]>([]);
+  // Loading state while fetching from API
+  const [fetching, setFetching] = useState(true);
+  // Search query for filtering specializations
+  const [search, setSearch] = useState('');
+  // Filter by status: 'All Statuses', 'Active', or 'Inactive'
+  const [statusFilter, setStatusFilter] = useState('All Statuses');
+  // Whether to show the add modal
+  const [showModal, setShowModal] = useState(false);
+  // Specialization selected for editing, null if no edit modal shown
+  const [editTarget, setEditTarget] = useState<Specialization | null>(null);
+  // Specialization selected for deletion, null if no delete modal shown
+  const [deleteTarget, setDeleteTarget] = useState<Specialization | null>(null);
+  // Current page number for pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  // Number of cards per page (8 cards per page in 4-column grid × 2 rows)
+  const PAGE_SIZE = 8;
+
+  /** Fetch specializations from API on component mount */
   useEffect(() => {
     async function load() {
       try {
@@ -608,23 +714,29 @@ export default function Specializations() {
     load();
   }, []);
 
+  /** Adds newly created specialization to the list and resets to first page */
   const handleCreated = (spec: Specialization) => {
     setSpecializations((prev) => [spec, ...prev]);
     setCurrentPage(1);
   };
 
+  /** Updates specialization in the list after edit */
   const handleUpdated = (updated: Specialization) => {
     setSpecializations((prev) => prev.map((s) => (s._id === updated._id ? updated : s)));
   };
 
+  /** Removes deleted specialization from the list */
   const handleDeleted = (id: string) => {
     setSpecializations((prev) => prev.filter((s) => s._id !== id));
   };
 
+  /** Filter specializations by search query and status */
   const filtered = specializations.filter((s) => {
+    // Check if specialization name or description matches search query
     const matchesSearch =
       s.name.toLowerCase().includes(search.toLowerCase()) ||
       s.description.toLowerCase().includes(search.toLowerCase());
+    // Check if specialization status matches selected filter
     const matchesStatus =
       statusFilter === 'All Statuses' ||
       (statusFilter === 'Active' && s.isActive) ||
@@ -632,19 +744,22 @@ export default function Specializations() {
     return matchesSearch && matchesStatus;
   });
 
-  // reset to page 1 whenever filters change
+  /** Reset to page 1 whenever search or status filter changes */
   useEffect(() => { setCurrentPage(1); }, [search, statusFilter]);
 
+  // Check if we're on the last page to show the "Add new" card
   const isLastPage = currentPage === Math.ceil(filtered.length / PAGE_SIZE) || filtered.length === 0;
+  // Get specializations for current page
   const paginated = useMemo(
     () => filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE),
     [filtered, currentPage]
   );
+  // Calculate total number of pages
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
 
   return (
     <div className="p-6 lg:p-8">
-      {/* Header */}
+      {/* Page Header with Title and Add Button */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8">
         <div>
           <h2 className="text-2xl font-bold tracking-tight text-text-base">Specialization Management</h2>
@@ -659,7 +774,7 @@ export default function Specializations() {
         </button>
       </div>
 
-      {/* Filters */}
+      {/* Search and Filter Controls */}
       <div className="flex flex-wrap items-center justify-between gap-4 p-4 bg-card rounded-2xl border border-border mb-8">
         <div className="relative w-full md:w-auto flex-1 max-w-md">
           <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-text-muted text-[20px]">
@@ -690,7 +805,7 @@ export default function Specializations() {
         </div>
       </div>
 
-      {/* Cards */}
+      {/* Specialization Cards Grid - Shows loading skeleton or actual cards */}
       {fetching ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {[...Array(4)].map((_, i) => (
@@ -716,7 +831,7 @@ export default function Specializations() {
             />
           ))}
 
-          {/* Add new card — only on last page */}
+          {/* Add New Category Card - Only shown on the last page */}
           {isLastPage && (
             <div
               onClick={() => setShowModal(true)}
@@ -736,7 +851,7 @@ export default function Specializations() {
         </div>
       )}
 
-      {/* Empty state */}
+      {/* Empty State - Shown when no results match filters */}
       {!fetching && filtered.length === 0 && specializations.length > 0 && (
         <div className="flex flex-col items-center justify-center py-16 gap-3 text-text-muted">
           <span className="material-symbols-outlined text-5xl text-primary/30">search_off</span>
@@ -744,7 +859,7 @@ export default function Specializations() {
         </div>
       )}
 
-      {/* Pagination */}
+      {/* Pagination Controls */}
       {!fetching && filtered.length > 0 && (
         <div className="flex items-center justify-between mt-8 pt-6 border-t border-border">
           <span className="text-sm text-text-muted">
@@ -767,7 +882,9 @@ export default function Specializations() {
         </div>
       )}
 
-      {/* Add Modal */}
+      {/* Modal Components */}
+      
+      {/* Add Specialization Modal - Shown when 'Add Specialization' button is clicked */}
       {showModal && (
         <AddSpecializationModal
           onClose={() => setShowModal(false)}
@@ -775,7 +892,7 @@ export default function Specializations() {
         />
       )}
 
-      {/* Edit Modal */}
+      {/* Edit Specialization Modal - Shown when edit action is triggered on a card */}
       {editTarget && (
         <EditSpecializationModal
           spec={editTarget}
@@ -784,7 +901,7 @@ export default function Specializations() {
         />
       )}
 
-      {/* Delete Confirm Modal */}
+      {/* Delete Confirmation Modal - Shown before deleting a specialization */}
       {deleteTarget && (
         <DeleteSpecializationModal
           spec={deleteTarget}
