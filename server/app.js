@@ -5,8 +5,10 @@ import cookieParser from "cookie-parser";
 import pinoHttp from "pino-http";
 import createError from "http-errors";
 import apiRoutes from "./routes/apiRoutes.js";
+import { isAllowedOrigin } from "./utils/origin.js";
 
 const app = express();
+app.set("trust proxy", 1);
 
 /* -------------------- Logger (first) -------------------- */
 // app.use(
@@ -23,7 +25,13 @@ app.use(helmet());
 
 app.use(
   cors({
-    origin: process.env.CLIENT_ORIGIN || "http://localhost:3000",
+    origin: (origin, callback) => {
+      // Allow non-browser requests without an Origin header.
+      if (!origin) return callback(null, true);
+      if (isAllowedOrigin(origin)) return callback(null, true);
+
+      return callback(new Error("CORS blocked (invalid origin)"));
+    },
     credentials: true,
   }),
 );
@@ -51,8 +59,6 @@ app.use((req, res, next) => next(createError(404, "Route not found")));
 /* -------------------- Global Error Handler -------------- */
 app.use((err, req, res, next) => {
   req.log?.error({ err }, "Unhandled error");
-
-app.set("trust proxy", 1);  
 
   const status = err.status || 500;
   res.status(status).json({

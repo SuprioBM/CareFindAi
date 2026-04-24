@@ -1,7 +1,7 @@
 // server/middleware/originGuard.js
-export function originGuard(req, res, next) {
-  const allowedOrigin = process.env.CLIENT_ORIGIN || "http://localhost:3000";
+import { isAllowedOrigin } from "../utils/origin.js";
 
+export function originGuard(req, res, next) {
   // For same-site requests, browsers usually send Origin on POST/fetch.
   const origin = req.headers.origin;
 
@@ -9,7 +9,7 @@ export function originGuard(req, res, next) {
   // For now: allow missing origin to avoid breaking non-browser clients.
   if (!origin) return next();
 
-  if (origin !== allowedOrigin) {
+  if (!isAllowedOrigin(origin)) {
     return res.status(403).json({
       success: false,
       message: "CSRF blocked (invalid origin)",

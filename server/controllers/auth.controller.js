@@ -8,6 +8,7 @@ import {
   sendPasswordResetEmail,
 } from "../middleware/sendEmail.js";
 import { issueSession, revokeAllSessionsForUser } from "../utils/manageSessions.js";
+import { getRefreshCookieOptions } from "../utils/cookies.js";
 
 
 
@@ -124,12 +125,7 @@ export async function logout(req, res) {
 
     // Clear refresh token cookie
     res
-      .clearCookie("refresh_token", {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        path: "/",
-      })
+      .clearCookie("refresh_token", getRefreshCookieOptions())
       .json({ message: "Logged out successfully" });
   } catch (err) {
     console.error(err);
@@ -229,12 +225,7 @@ export async function resetPassword(req, res) {
 
     await revokeAllSessionsForUser(user._id.toString());
 
-    res.clearCookie("refresh_token", {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-    });
+    res.clearCookie("refresh_token", getRefreshCookieOptions());
 
     return res.json({
       message: "Password reset successful. Please login again.",

@@ -4,6 +4,10 @@ import { generateOtp, hashOtp } from "../utils/emailOtp.js";
 import { sendVerificationEmail } from "./sendEmail.js";
 import crypto from "crypto";
 import User from "../models/User.model.js";
+import {
+  getRefreshCookieOptions,
+  getRefreshCookieOptionsWithMaxAge,
+} from "../utils/cookies.js";
 
 
 const ACCESS_EXP = "5m"; // short-lived
@@ -62,12 +66,7 @@ export async function refresh(req, res) {
     const sessionStr = await redis.get(`sess:${refreshToken}`);
     if (!sessionStr) {
       // token not found — clear cookie
-      res.clearCookie("refresh_token", {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        path: "/",
-      });
+      res.clearCookie("refresh_token", getRefreshCookieOptions());
       return res
         .status(401)
         .json({ message: "Invalid or expired refresh token" });
@@ -83,12 +82,7 @@ export async function refresh(req, res) {
     if (!currentTokenForSid) {
       // sid missing -> suspicious; revoke all
       await revokeAllSessions(redis, userID);
-      res.clearCookie("refresh_token", {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        path: "/",
-      });
+      res.clearCookie("refresh_token", getRefreshCookieOptions());
       return res
         .status(401)
         .json({ message: "Session invalid. Please login again." });
@@ -98,12 +92,7 @@ export async function refresh(req, res) {
       // 🚨 token reuse detected → revoke all sessions for safety
       await revokeAllSessions(redis, userID);
 
-      res.clearCookie("refresh_token", {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        path: "/",
-      });
+      res.clearCookie("refresh_token", getRefreshCookieOptions());
 
       return res.status(401).json({
         message:
@@ -139,13 +128,11 @@ export async function refresh(req, res) {
     await multi.exec();
 
     // 5) Set new cookie
-    res.cookie("refresh_token", newRefreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-      maxAge: REFRESH_EXP * 1000,
-    });
+    res.cookie(
+      "refresh_token",
+      newRefreshToken,
+      getRefreshCookieOptionsWithMaxAge(REFRESH_EXP * 1000),
+    );
 
     return res.json({ accessToken: newAccessToken });
   } catch (err) {

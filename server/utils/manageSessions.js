@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import jwt from "jsonwebtoken";
 import { getRedis } from "../config/redis.js";
+import { getRefreshCookieOptionsWithMaxAge } from "./cookies.js";
 
 const ACCESS_EXP = process.env.ACCESS_EXP || "5m";
 const REFRESH_EXP = process.env.REFRESH_EXP || 7 * 24 * 60 * 60; // seconds
@@ -37,13 +38,11 @@ export async function issueSession(req, res, user) {
     { expiresIn: ACCESS_EXP },
   );
 
-  res.cookie("refresh_token", refreshToken, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-    maxAge: REFRESH_EXP * 1000,
-  });
+  res.cookie(
+    "refresh_token",
+    refreshToken,
+    getRefreshCookieOptionsWithMaxAge(REFRESH_EXP * 1000),
+  );
 
   return {
     accessToken,

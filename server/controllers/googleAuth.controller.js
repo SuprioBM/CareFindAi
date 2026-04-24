@@ -17,8 +17,6 @@ export async function googleStart(req, res) {
   await redis.set(
     `oauth:state:${state}`,
     JSON.stringify({
-      ip: req.ip,
-      ua: req.headers["user-agent"],
       redirect,
     }),
     { EX: STATE_TTL }, // 10 minutes
@@ -49,11 +47,6 @@ export async function googleCallback(req, res) {
 
       const stored = JSON.parse(stateStr);
       const redirectPath = stored.redirect || "/";
-
-      // Verify same browser
-      if (stored.ip !== req.ip || stored.ua !== req.headers["user-agent"]) {
-        return res.status(400).json({ message: "OAuth state mismatch" });
-      }
 
       // Delete state (one-time use)
       await redis.del(`oauth:state:${state}`);
