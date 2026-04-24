@@ -1,3 +1,18 @@
+﻿/**
+ * Main Dashboard Page
+ *
+ * Shows a preview of the user's previous symptom searches (up to 6 chips)
+ *        with a "View all" link to the full Previous Searches history page.
+ *
+ * Shows a preview of the user's saved/bookmarked doctors (up to 6 cards)
+ *        with a "Manage" link to the full Saved Items page.
+ *
+ * Each saved doctor card links to /doctors/:id — the full doctor profile page
+ *        showing specialization, chamber info, and contact details.
+ *
+ * This page loads both datasets in parallel on mount using Promise.all(),
+ * so the dashboard appears quickly without waiting for sequential API calls.
+ */
 'use client';
 
 import Link from 'next/link';
@@ -6,10 +21,11 @@ import DashboardSidebar from '../../components/dashboard/dashBoardsidebar';
 import { useAuth } from '@/authContext/authContext';
 import { apiFetch } from '@/lib/api';
 
+// A single symptom search record (partial shape — only fields needed for dashboard chips)
 type SymptomSearchItem = {
-  _id: string;
-  symptomsText: string;
-  recommendedSpecializationName?: string;
+  _id: string;                             // Used as React key and for linking
+  symptomsText: string;                    // Displayed as the chip label (what the user typed)
+  recommendedSpecializationName?: string;  // Fallback label if symptomsText is missing
 };
 
 type SymptomSearchesResponse = {
@@ -18,14 +34,15 @@ type SymptomSearchesResponse = {
   message?: string;
 };
 
+// A single bookmark item (partial shape — only fields needed for dashboard preview cards)
 type BookmarkItem = {
-  _id: string;
+  _id: string;      // Bookmark record ID
   doctor?: {
-    _id?: string;
-    fullName?: string;
-    specializationName?: string;
-    profileImage?: string;
-    city?: string;
+    _id?: string;               // Doctor's ID — used to build the profile link (/doctors/:id)
+    fullName?: string;          // Doctor's display name
+    specializationName?: string; // Specialty shown under the name
+    profileImage?: string;      // Photo shown on the card
+    city?: string;              // Location shown under the name
   };
 };
 
@@ -63,8 +80,13 @@ function getSearchIcon(label: string): string {
 
 export default function DashboardPage() {
   const { user, loading: authLoading } = useAuth();
+
+  // Stores the 6 most recent symptom searches shown as clickable chips
   const [previousSearches, setPreviousSearches] = useState<PreviousSearchChip[]>([]);
+
+  // Stores up to 6 bookmarked doctor cards shown on the dashboard
   const [savedDoctors, setSavedDoctors] = useState<SavedDoctorCard[]>([]);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -85,11 +107,15 @@ export default function DashboardPage() {
         setLoading(true);
         setError('');
 
+        // Fetch BOTH datasets simultaneously (parallel) to speed up dashboard load time.
+        // GET /symptom-searches → user's previous symptom searches
+        // GET /bookmarks        → user's saved/bookmarked doctors
         const [searchRes, bookmarkRes] = await Promise.all([
           apiFetch('/symptom-searches', { method: 'GET' }),
           apiFetch('/bookmarks', { method: 'GET' }),
         ]);
 
+        // Parse both responses; .catch(() => null) prevents one failure from breaking both
         const [searchJson, bookmarkJson] = await Promise.all([
           searchRes.json().catch(() => null),
           bookmarkRes.json().catch(() => null),
@@ -98,7 +124,10 @@ export default function DashboardPage() {
         const searchData = (searchJson as SymptomSearchesResponse | null)?.data ?? [];
         const bookmarkData = (bookmarkJson as BookmarkResponse | null)?.data ?? [];
 
+        // Map the 6 most recent searches into chip display objects.
+        // Each chip shows the symptom text + a relevant icon based on specialty keywords.
         const mappedSearches = searchData.slice(0, 6).map((item) => {
+          // Use symptom text as chip label; fall back to specialization name if empty
           const label =
             item.symptomsText?.trim() ||
             item.recommendedSpecializationName?.trim() ||
@@ -106,16 +135,18 @@ export default function DashboardPage() {
 
           return {
             id: item._id,
-            icon: getSearchIcon(label),
+            icon: getSearchIcon(label), // Pick icon based on keywords in the label
             label,
           };
         });
 
+        // Map the 6 most recently saved doctors into card display objects.
+        // Each card shows: photo, name, specialty, city, and a Book button → doctor profile ()
         const mappedDoctors = bookmarkData.slice(0, 6).map((item) => {
           const doctor = item.doctor;
           return {
             bookmarkId: item._id,
-            doctorId: doctor?._id || item._id,
+            doctorId: doctor?._id || item._id,          // Used in href="/doctors/:id" ()
             name: doctor?.fullName || 'Unknown Doctor',
             specialty: doctor?.specializationName || 'General Medicine',
             location: doctor?.city || 'Location unavailable',
@@ -205,7 +236,12 @@ export default function DashboardPage() {
               </div>
             )}
 
-            {/* Previous Searches */}
+            {/*
+             * Previous Searches Section
+             * Shows the user's last 6 symptom searches as clickable chips.
+             * Each chip displays the symptom text with a relevant medical icon.
+             * "View all" links to /dashboard/previous_searches for the full paginated history.
+             */}
             <section>
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-bold flex items-center gap-2">
@@ -241,7 +277,14 @@ export default function DashboardPage() {
               </div>
             </section>
 
-            {/* Saved Doctors */}
+            {/*
+             * Saved Doctors Section
+             * Shows a preview of up to 6 bookmarked doctors as cards.
+             * Each card has: doctor photo, name, specialization, city, and a "Book" button.
+             * The "Book" button links to /doctors/:id — the full doctor profile page ()
+             * which shows specialization, chamber address, phone, and contact details.
+             * "Manage" links to /dashboard/saved_items for the full saved items page.
+             */}
             <section>
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-lg font-bold flex items-center gap-2">
