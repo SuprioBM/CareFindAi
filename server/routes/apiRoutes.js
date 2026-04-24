@@ -9,6 +9,7 @@ import doctorJoinRequestRoutes from "./doctorJoinRequest.routes.js";
 import authRoutes from "./auth.routes.js";
 import aiRoutes from "./ai.routes.js";
 import analyticsRoutes from "./analytics.router.js";
+import triageRoutes from "./triage.routes.js";
 
 const router = express.Router();
 
@@ -21,5 +22,6 @@ router.use("/saved-locations", savedLocationRoutes);
 router.use("/doctor-join-requests", doctorJoinRequestRoutes);
 router.use("/ai", aiRoutes);
 router.use("/analytics", analyticsRoutes);
+router.use("/triage", triageRoutes);
 
 export default router;

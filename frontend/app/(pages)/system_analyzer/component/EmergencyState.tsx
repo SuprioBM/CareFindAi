@@ -1,6 +1,14 @@
 import { MaterialIcon } from "./MaterialIcon";
+import type { TriageResult } from "@/lib/api/triage";
 
-export function EmergencyState() {
+type EmergencyStateProps = {
+  urgency: TriageResult["urgency"];
+  nextStep: string;
+};
+
+export function EmergencyState({ urgency, nextStep }: EmergencyStateProps) {
+  const isEmergency = urgency === "EMERGENCY";
+
   return (
     <section className="relative w-full overflow-hidden rounded-xl border border-[color-mix(in_srgb,var(--sa-error)_30%,transparent)] bg-[color-mix(in_srgb,var(--sa-error-container)_20%,transparent)] p-6 shadow-lg shadow-[color-mix(in_srgb,var(--sa-error)_8%,transparent)]">
       <div className="absolute top-0 right-0 p-4 opacity-10">
@@ -14,17 +22,18 @@ export function EmergencyState() {
 
         <div className="flex-1">
           <h2 className="mb-1 text-xs font-bold tracking-tight text-(--sa-on-surface) uppercase opacity-60">
-            Critical Alert
+            {isEmergency ? "Critical Alert" : "High Priority Alert"}
           </h2>
 
           <h1 className="mb-2 text-2xl font-extrabold text-(--sa-on-surface)">
-            Potential medical emergency detected
+            {isEmergency
+              ? "Potential medical emergency detected"
+              : "High-risk condition requires urgent care"}
           </h1>
 
           <p className="mb-6 leading-relaxed text-(--sa-on-surface-variant)">
-            Based on your input, you may be experiencing a high-risk condition.
-            Seek immediate medical attention at the nearest emergency department
-            or contact emergency services.
+            {nextStep ||
+              "Based on your input, seek urgent in-person medical assessment immediately."}
           </p>
 
           <div className="flex flex-wrap gap-3">
@@ -40,7 +49,7 @@ export function EmergencyState() {
               type="button"
               className="rounded-lg border border-(--sa-outline-variant) bg-(--sa-surface-container-highest) px-6 py-3 font-semibold text-(--sa-on-surface) transition-all hover:bg-(--sa-surface-container-high) active:scale-95"
             >
-              Understand Warning Signs
+              Follow Clinical Guidance
             </button>
           </div>
         </div>

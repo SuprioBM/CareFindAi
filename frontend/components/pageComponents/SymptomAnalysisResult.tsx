@@ -139,12 +139,11 @@ export default function SymptomAnalysisResult({
           </div>
 
           {analysis.urgency && (
-            <div></div>
-            // <div
-            //   className={`rounded-full border px-4 py-2 text-xs font-bold uppercase tracking-wide ${urgencyTone}`}
-            // >
-            //   {analysis.urgency} urgency
-            // </div>
+            <div
+              className={`rounded-full border px-4 py-2 text-xs font-bold uppercase tracking-wide ${urgencyTone}`}
+            >
+              {analysis.urgency} urgency
+            </div>
           )}
         </div>
 
@@ -166,7 +165,7 @@ export default function SymptomAnalysisResult({
           </div>
         )}
 
-        {/* <div className="bg-primary/5 rounded-xl p-4 border border-primary/10">
+        <div className="bg-primary/5 rounded-xl p-4 border border-primary/10">
           <div className="flex items-center gap-2 text-primary font-semibold mb-3">
             <span className="material-symbols-outlined text-[18px]">
               lightbulb
@@ -177,7 +176,7 @@ export default function SymptomAnalysisResult({
           <p className="text-sm text-text-sub leading-relaxed">
             {analysis.explanation || 'No explanation was returned by the backend.'}
           </p>
-        </div> */}
+        </div>
 
         {analysis.warningMessage && (
           <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-4">

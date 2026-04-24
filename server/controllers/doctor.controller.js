@@ -1,18 +1,3 @@
-/**
- * Doctor Controller
- *
- * Functions:
- * toRadians - Converts degrees to radians
- * getDistanceInKm - Calculates distance between two coordinates using Haversine formula
- * createDoctor - Creates a doctor profile and records which authenticated admin added it
- * getAllDoctors - Returns doctors with optional query-string filters for specialization, location, and moderation flags
- * getDoctorById - Fetches a single doctor record by MongoDB id
- * updateDoctor - Updates a doctor document and returns the validated result
- * deleteDoctor - Removes a doctor record permanently
- * getNearbyDoctors - Finds approved, active doctors near a given coordinate and returns them sorted by computed distance
- * manualSearch - Performs manual search for doctors with various filters
- */
-
 import Doctor from "../models/doctor.model.js";
 
 // Convert degrees to radians
