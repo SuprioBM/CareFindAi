@@ -1,3 +1,22 @@
+﻿/**
+ * The system shall allow users to save or bookmark doctors for quick future reference.
+ * User shall save frequently used locations (home, office) for quick future searches.
+ * The system shall allow users to view detailed doctor profiles from the dashboard.
+ *
+ * This component renders the full "Saved Items" dashboard section, which contains two sub-sections:
+ *
+ * 1. SAVED DOCTORS ()
+ *    - Fetches all doctors the user has bookmarked from GET /api/bookmarks
+ *    - Renders a card grid showing each doctor's photo, name, specialization, and fees
+ *    - Each card has a remove (unsave) button and a "Book Appointment" link
+ *    - The Book link navigates to /doctors/:id — the full doctor profile page ()
+ *
+ * 2. SAVED LOCATIONS ()
+ *    - Fetches all saved locations (home, office, etc.) from GET /api/saved-locations
+ *    - Renders location cards with label, address, and a map directions button
+ *    - Clicking "Directions" on a location opens an interactive map with a route preview
+ *    - Locations can be removed with the heart/delete button
+ */
 'use client';
 
 import dynamic from 'next/dynamic';
@@ -6,16 +25,20 @@ import { useEffect, useMemo, useState } from 'react';
 import { apiFetch } from '@/lib/api';
 import { useAuth } from '@/authContext/authContext';
 
-// ── Types ─────────────────────────────────────────────────────
+// ── TypeScript Type Definitions ──────────────────────────────────────────────
+/**
+ * Represents a saved/bookmarked doctor as displayed in the UI.
+ * This is the cleaned-up shape we use after transforming the raw API response.
+ */
 interface BookmarkedDoctor {
-  bookmarkId: string;
-  doctorId: string;
-  fullName: string;
-  specializationName: string;
-  profileImage: string;
-  city: string;
-  fees: number;
-  consultation: string;
+  bookmarkId: string;       // Unique ID of the bookmark record (used to delete it)
+  doctorId: string;         // The doctor's own ID (used to link to their profile page)
+  fullName: string;         // Doctor's display name
+  specializationName: string; // e.g., "Cardiology", "Neurology"
+  profileImage: string;     // URL to doctor's photo (shown on the card)
+  city: string;             // Where the doctor's chamber is located
+  fees: number;             // Consultation fee in BDT
+  consultation: string;     // Consultation type (e.g., "In-person", "Telemedicine")
 }
 
 interface BookmarkApiItem {
@@ -37,27 +60,35 @@ interface BookmarkResponse {
   message?: string;
 }
 
+/**
+ * Raw API response shape for a single saved location from GET /api/saved-locations.
+ * This is what the backend returns before we transform it for display.
+ */
 interface SavedLocationApi {
-  _id: string;
-  label: 'home' | 'office' | 'other';
-  customLabel: string;
-  address: string;
-  latitude: number;
-  longitude: number;
-  image?: string;
+  _id: string;              // Unique MongoDB ID for this saved location
+  label: 'home' | 'office' | 'other'; // Category of location
+  customLabel: string;      // User-given name (e.g., "Grandma's House")
+  address: string;          // Full readable address string
+  latitude: number;         // GPS latitude for map placement
+  longitude: number;        // GPS longitude for map placement
+  image?: string;           // Optional photo of the location
 }
 
+/**
+ * The transformed shape of a saved location used for rendering UI cards.
+ * Created by mapping the raw API data into a format the component can use easily.
+ */
 interface SavedLocationCard {
-  id: number;
-  serverId: string;
-  labelType: 'home' | 'office' | 'other';
-  tag: string;
-  name: string;
-  addressLine1: string;
-  addressLine2: string;
-  image: string | null;
-  lat: number;
-  lng: number;
+  id: number;               // Sequential display index (1, 2, 3...)
+  serverId: string;         // MongoDB ID — used for delete API calls
+  labelType: 'home' | 'office' | 'other'; // Controls icon and color
+  tag: string;              // Short label shown as a badge (e.g., "Home", "Office")
+  name: string;             // Display name of this location
+  addressLine1: string;     // First line of address (before the first comma)
+  addressLine2: string;     // Remaining address (city, district, etc.)
+  image: string | null;     // Optional photo URL, null if not available
+  lat: number;              // Latitude for map pin
+  lng: number;              // Longitude for map pin
 }
 
 interface SavedLocationResponse {
@@ -75,7 +106,10 @@ const DoctorMap = dynamic(() => import('../../components/Map/map'), {
   ),
 });
 
+// Default GPS fallback if the browser cannot get the user's real location
 const DEFAULT_USER_LOCATION: [number, number] = [47.6062, -122.3321];
+
+// Fallback photo path if a doctor has no profile image stored
 const DEFAULT_PHOTO = '/default-doctor.png';
 
 function mapLocationLabel(label: 'home' | 'office' | 'other'): string {
@@ -112,18 +146,23 @@ function buildLocationIconDataUrl(label: 'home' | 'office' | 'other'): string {
   return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 }
 
+/**
+ * Transforms a raw bookmark API item into the BookmarkedDoctor shape.
+ * Handles missing fields gracefully with fallback values so the UI never breaks
+ * even if a doctor's data is incomplete.
+ */
 function mapBookmarkItem(item: BookmarkApiItem): BookmarkedDoctor {
   const doctor = item.doctor;
 
   return {
-    bookmarkId: item._id,
-    doctorId: doctor?._id || item._id,
-    fullName: doctor?.fullName || 'Unknown Doctor',
-    specializationName: doctor?.specializationName || 'General Medicine',
-    profileImage: doctor?.profileImage || DEFAULT_PHOTO,
-    city: doctor?.city || 'Location unavailable',
-    fees: doctor?.fees || 0,
-    consultation: doctor?.consultation || 'N/A',
+    bookmarkId: item._id,                                          // Bookmark record ID (for delete)
+    doctorId: doctor?._id || item._id,                            // Doctor's ID (for profile link)
+    fullName: doctor?.fullName || 'Unknown Doctor',               // Display name fallback
+    specializationName: doctor?.specializationName || 'General Medicine', // Specialty fallback
+    profileImage: doctor?.profileImage || DEFAULT_PHOTO,          // Photo fallback
+    city: doctor?.city || 'Location unavailable',                 // Location fallback
+    fees: doctor?.fees || 0,                                      // Fee fallback (0 = not specified)
+    consultation: doctor?.consultation || 'N/A',                  // Consultation type fallback
   };
 }
 
@@ -131,23 +170,25 @@ function mapBookmarkItem(item: BookmarkApiItem): BookmarkedDoctor {
 export default function SavedItemsContent() {
   const { user, loading } = useAuth();
 
-  // ── Bookmark state ────────────────────────────────────────
-  const [doctors, setDoctors] = useState<BookmarkedDoctor[]>([]);
-  const [fetching, setFetching] = useState(true);
-  const [removing, setRemoving] = useState<string | null>(null);
-  const [savedLocations, setSavedLocations] = useState<SavedLocationCard[]>([]);
-  const [loadingLocations, setLoadingLocations] = useState(true);
-  const [removingLocationId, setRemovingLocationId] = useState<string | null>(null);
+  // ── Saved Doctors State ────────────────────────────────────────────
+  const [doctors, setDoctors] = useState<BookmarkedDoctor[]>([]);         // List of bookmarked doctors
+  const [fetching, setFetching] = useState(true);                          // Loading state for bookmarks API
+  const [removing, setRemoving] = useState<string | null>(null);           // ID of bookmark currently being removed
+  // ── Saved Locations State ──────────────────────────────────────────
+  const [savedLocations, setSavedLocations] = useState<SavedLocationCard[]>([]); // List of saved locations
+  const [loadingLocations, setLoadingLocations] = useState(true);          // Loading state for locations API
+  const [removingLocationId, setRemovingLocationId] = useState<string | null>(null); // ID of location being removed
 
   // ── Location state (untouched) ────────────────────────────
   const [userLocation, setUserLocation] = useState<[number, number]>(DEFAULT_USER_LOCATION);
   const [activeRouteLocationId, setActiveRouteLocationId] = useState<number | null>(null);
 
-  // ── Fetch bookmarks ───────────────────────────────────────
+  // ── Fetch bookmarked doctors from the backend ──────────────────────
   useEffect(() => {
-    if (loading) return;
+    if (loading) return; // Wait for auth check to finish first
 
     if (!user) {
+      // User is not logged in — clear the list and stop loading
       setDoctors([]);
       setFetching(false);
       return;
@@ -156,10 +197,13 @@ export default function SavedItemsContent() {
     async function loadBookmarks() {
       try {
         setFetching(true);
+        // GET /api/bookmarks — returns all doctors bookmarked by the logged-in user.
+        // Each item includes full doctor details (name, photo, city, specialization).
         const res = await apiFetch('/bookmarks');
         const data: BookmarkResponse = await res.json();
         if (!data.success) return;
 
+        // Transform each raw API item into the cleaner BookmarkedDoctor shape for the UI
         setDoctors(data.data.map(mapBookmarkItem));
       } catch (e) {
         console.error('Failed to load bookmarks:', e);
@@ -171,7 +215,7 @@ export default function SavedItemsContent() {
     loadBookmarks();
   }, [loading, user]);
 
-  // ── Fetch saved locations ─────────────────────────────────
+  // ── Fetch saved locations from the backend ──────────────────────────
   useEffect(() => {
     if (loading) return;
 
@@ -234,7 +278,9 @@ export default function SavedItemsContent() {
     };
   }, [loading, user]);
 
-  // ── Remove bookmark (optimistic) ─────────────────────────
+  // ── Remove (unsave) a bookmarked doctor ─────────────────────────────
+  // Uses "optimistic update" — removes the card from the UI immediately for instant feedback,
+  // then calls the API. If the API call fails, it re-fetches the list to restore the correct state.
   const removeBookmark = async (bookmarkId: string) => {
     setRemoving(bookmarkId);
     setDoctors((prev) => prev.filter((d) => d.bookmarkId !== bookmarkId));
@@ -255,6 +301,9 @@ export default function SavedItemsContent() {
     }
   };
 
+  // ── Remove a saved location ──────────────────────────────────────────
+  // Also uses optimistic update — removes from UI first, then calls DELETE /api/saved-locations/:id.
+  // If the delete fails, the original list is restored from the saved snapshot.
   const removeSavedLocation = async (locationId: string) => {
     setRemovingLocationId(locationId);
     const previous = savedLocations;
@@ -281,7 +330,9 @@ export default function SavedItemsContent() {
     }
   };
 
-  // ── Geolocation (untouched) ───────────────────────────────
+  // ── Get the user's current GPS position for the map ─────────────────
+  // This is used to show the user's location on the saved locations map.
+  // Falls back to DEFAULT_USER_LOCATION if the browser denies geolocation permission.
   useEffect(() => {
     if (!('geolocation' in navigator)) return;
     navigator.geolocation.getCurrentPosition(
@@ -295,7 +346,8 @@ export default function SavedItemsContent() {
     );
   }, []);
 
-  // ── Map helpers (untouched) ───────────────────────────────
+  // ── Map data helpers ─────────────────────────────────────────────────
+  // These convert saved location data into the format the <DoctorMap> component expects.
   const mapMarkers = useMemo(
     () =>
       savedLocations.map((location) => ({
@@ -330,7 +382,12 @@ export default function SavedItemsContent() {
         </p>
       </div>
 
-      {/* ── Saved Doctors ── */}
+      {/* ── Saved Doctors Section ─────────────────────────────────
+           Shows all doctors the user has bookmarked.
+           Each card displays: photo, name, specialization, rating placeholder, and a
+           "Book Appointment" button that links to the full doctor profile page ().
+           The heart button removes the doctor from the saved list.
+      ── */}
       <section className="flex flex-col gap-6">
         <div className="flex items-center justify-between border-b border-border pb-4">
           <div className="flex items-center gap-3">
@@ -428,7 +485,12 @@ export default function SavedItemsContent() {
         )}
       </section>
 
-      {/* ── Saved Locations (untouched) ── */}
+      {/* ── Saved Locations Section ────────────────────────────────────────
+           Shows all locations the user has saved (home, office, or custom).
+           Each card shows: label badge (Home/Office/Other), address, and action buttons.
+           "Directions" button activates a map route preview below the cards list.
+           The heart button permanently removes the location from the saved list.
+      ── */}
       <section className="flex flex-col gap-6 bg-card p-8 rounded-2xl border border-border">
         <div className="flex items-center justify-between border-b border-border/60 pb-4">
           <div className="flex items-center gap-3">
