@@ -40,10 +40,14 @@ const features = [
 
 export default function Home() {
 useEffect(() => {
-  if (location.search.includes("debug=true")) {
+  if (process.env.NODE_ENV === "development" || location.search.includes("debug=true")) {
     const script = document.createElement("script");
     script.src = "https://cdn.jsdelivr.net/npm/eruda";
-    script.onload = () => window.eruda.init();
+
+    script.onload = () => {
+      (window as any).eruda.init();
+    };
+
     document.body.appendChild(script);
   }
 }, []);
