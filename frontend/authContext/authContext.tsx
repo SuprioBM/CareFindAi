@@ -3,7 +3,7 @@
 import { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { apiFetch } from "@/lib/api";
 import { User, AuthContextType } from "@/types/types";
-import { setAccessToken, clearAccessToken, getAccessToken } from "@/lib/auth";
+import { setAccessToken, clearAccessToken } from "@/lib/auth";
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
@@ -11,76 +11,62 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // ===================== Robust session restore =====================
+  // ===================== Silent refresh on app load =====================
   useEffect(() => {
-    let mounted = true;
-
-    const sleep = (ms: number) =>
-      new Promise((resolve) => setTimeout(resolve, ms));
-
     const restoreSession = async () => {
       try {
-        let token = getAccessToken();
+        const res = await apiFetch("/auth/refresh", { method: "POST" }); // sends HttpOnly cookie automatically
+        if (res.ok) {
+          const data = await res.json();
+          setAccessToken(data.accessToken); // save in memory
 
-        // 🔥 ALWAYS attempt refresh first (not conditional)
-        // Retry up to 3 total attempts for mobile cookie attach timing.
-        const retryDelays = [150, 300];
-        let refreshRes: Response | null = null;
-
-        for (let attempt = 0; attempt < 3; attempt++) {
-          if (attempt > 0) {
-            await sleep(retryDelays[attempt - 1]);
-          }
-
-          refreshRes = await apiFetch("/auth/refresh", {
-            method: "POST",
-          });
-
-          if (refreshRes.ok) break;
-        }
-
-        if (!refreshRes || !refreshRes.ok) {
-          if (mounted) {
-            clearAccessToken();
+          // Fetch user data after refresh
+          const meRes = await apiFetch("/auth/me");
+          if (meRes.ok) {
+            const meData = await meRes.json();
+            
+            setUser(meData);
+          } else {
             setUser(null);
-            setLoading(false);
           }
-          return;
-        }
-
-        const data = await refreshRes.json();
-        token = data?.accessToken ?? null;
-
-        if (token) {
-          setAccessToken(token);
-        }
-
-        // 🔒 Ensure token propagation before /me
-        await sleep(50);
-
-        const meRes = await apiFetch("/auth/me");
-
-        if (meRes.ok && mounted) {
-          const meData = await meRes.json();
-          setUser(meData);
-        } else if (mounted) {
+        } else {
           setUser(null);
         }
       } catch {
-        if (mounted) {
-          setUser(null);
-          clearAccessToken();
-        }
+        setUser(null);
       } finally {
-        if (mounted) setLoading(false);
+        setLoading(false);
       }
     };
 
     restoreSession();
+  }, []);
 
-    return () => {
-      mounted = false;
-    };
+
+
+  // ===================== Auto-refresh access token =====================
+  useEffect(() => {
+    const interval = setInterval(
+      async () => {
+        try {
+          const res = await apiFetch("/auth/refresh", { method: "POST" });
+          if (res.ok) {
+            const data = await res.json();
+            setAccessToken(data.accessToken);
+            
+          } else {
+            setUser(null);
+            clearAccessToken();
+          }
+        } catch {
+          setUser(null);
+          clearAccessToken();
+        }
+      },
+      2.5 * 60 * 1000,
+    ); // 2.5 minutes, can adjust based on access token lifetime
+
+    return () => clearInterval(interval);
   }, []);
 
   // ===================== Login / Logout =====================

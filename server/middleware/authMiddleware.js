@@ -88,24 +88,17 @@ export async function refresh(req, res) {
         .json({ message: "Session invalid. Please login again." });
     }
 
-  if (currentTokenForSid !== refreshToken) {
-  // 🔍 Check if this token is in grace window
-  const isGrace = await redis.get(`grace:${refreshToken}`);
+    if (currentTokenForSid !== refreshToken) {
+      // 🚨 token reuse detected → revoke all sessions for safety
+      await revokeAllSessions(redis, userID);
 
-  if (!isGrace) {
-    // 🚨 Real reuse attack
-    await revokeAllSessions(redis, userID);
+      res.clearCookie("refresh_token", getRefreshCookieOptions());
 
-    res.clearCookie("refresh_token", getRefreshCookieOptions());
-
-    return res.status(401).json({
-      message:
-        "Refresh token reuse detected. Logged out everywhere. Please login again.",
-    });
-  }
-
-  // ✅ If in grace window → allow silently
-}
+      return res.status(401).json({
+        message:
+          "Refresh token reuse detected. Logged out everywhere. Please login again.",
+      });
+    }
 
     // 3) Rotate: new refresh token
     const newRefreshToken = crypto.randomBytes(32).toString("hex");
@@ -130,13 +123,7 @@ export async function refresh(req, res) {
     multi.set(`sid:${sid}`, newRefreshToken, { EX: REFRESH_EXP });
 
     // delete old token mapping
-   // mark old token as grace-valid for 3 seconds
-multi.set(`grace:${refreshToken}`, "1", { EX: 3 });
-
-// delay deletion to avoid race condition
-setTimeout(() => {
-  redis.del(`sess:${refreshToken}`);
-}, 3000);
+    multi.del(`sess:${refreshToken}`);
 
     await multi.exec();
 
