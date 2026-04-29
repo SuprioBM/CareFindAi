@@ -3,7 +3,7 @@
 import { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { apiFetch } from "@/lib/api";
 import { User, AuthContextType } from "@/types/types";
-import { setAccessToken, clearAccessToken } from "@/lib/auth";
+import { setAccessToken, clearAccessToken, getAccessToken } from "@/lib/auth";
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
@@ -11,62 +11,48 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // ===================== Silent refresh on app load =====================
+  // ===================== Restore session (SAFE) =====================
   useEffect(() => {
     const restoreSession = async () => {
       try {
-        const res = await apiFetch("/auth/refresh", { method: "POST" }); // sends HttpOnly cookie automatically
-        if (res.ok) {
-          const data = await res.json();
-          setAccessToken(data.accessToken); // save in memory
+        let token = getAccessToken();
 
-          // Fetch user data after refresh
-          const meRes = await apiFetch("/auth/me");
-          if (meRes.ok) {
-            const meData = await meRes.json();
-            
-            setUser(meData);
+        // 🔥 Only refresh if NO token exists
+        if (!token) {
+          const res = await apiFetch("/auth/refresh", { method: "POST" });
+
+          if (res.ok) {
+            const data = await res.json();
+            token = data?.accessToken ?? null;
+
+            if (token) {
+              setAccessToken(token);
+            }
           } else {
+            clearAccessToken();
             setUser(null);
+            return;
           }
+        }
+
+        // ✅ Fetch user regardless (token may already be valid)
+        const meRes = await apiFetch("/auth/me");
+
+        if (meRes.ok) {
+          const meData = await meRes.json();
+          setUser(meData);
         } else {
           setUser(null);
         }
       } catch {
         setUser(null);
+        clearAccessToken();
       } finally {
         setLoading(false);
       }
     };
 
     restoreSession();
-  }, []);
-
-
-
-  // ===================== Auto-refresh access token =====================
-  useEffect(() => {
-    const interval = setInterval(
-      async () => {
-        try {
-          const res = await apiFetch("/auth/refresh", { method: "POST" });
-          if (res.ok) {
-            const data = await res.json();
-            setAccessToken(data.accessToken);
-            
-          } else {
-            setUser(null);
-            clearAccessToken();
-          }
-        } catch {
-          setUser(null);
-          clearAccessToken();
-        }
-      },
-      2.5 * 60 * 1000,
-    ); // 2.5 minutes, can adjust based on access token lifetime
-
-    return () => clearInterval(interval);
   }, []);
 
   // ===================== Login / Logout =====================
