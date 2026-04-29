@@ -11,48 +11,72 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // ===================== Restore session (SAFE) =====================
+  // ===================== Robust session restore =====================
   useEffect(() => {
+    let mounted = true;
+
+    const sleep = (ms: number) =>
+      new Promise((resolve) => setTimeout(resolve, ms));
+
     const restoreSession = async () => {
       try {
         let token = getAccessToken();
 
-        // 🔥 Only refresh if NO token exists
-        if (!token) {
-          const res = await apiFetch("/auth/refresh", { method: "POST" });
+        // 🔥 ALWAYS attempt refresh first (not conditional)
+        let refreshRes = await apiFetch("/auth/refresh", {
+          method: "POST",
+        });
 
-          if (res.ok) {
-            const data = await res.json();
-            token = data?.accessToken ?? null;
-
-            if (token) {
-              setAccessToken(token);
-            }
-          } else {
-            clearAccessToken();
-            setUser(null);
-            return;
-          }
+        // 🔁 Retry once (fixes mobile cookie timing issue)
+        if (!refreshRes.ok) {
+          await sleep(150);
+          refreshRes = await apiFetch("/auth/refresh", {
+            method: "POST",
+          });
         }
 
-        // ✅ Fetch user regardless (token may already be valid)
+        if (!refreshRes.ok) {
+          if (mounted) {
+            clearAccessToken();
+            setUser(null);
+            setLoading(false);
+          }
+          return;
+        }
+
+        const data = await refreshRes.json();
+        token = data?.accessToken ?? null;
+
+        if (token) {
+          setAccessToken(token);
+        }
+
+        // 🔒 Ensure token propagation before /me
+        await sleep(50);
+
         const meRes = await apiFetch("/auth/me");
 
-        if (meRes.ok) {
+        if (meRes.ok && mounted) {
           const meData = await meRes.json();
           setUser(meData);
-        } else {
+        } else if (mounted) {
           setUser(null);
         }
       } catch {
-        setUser(null);
-        clearAccessToken();
+        if (mounted) {
+          setUser(null);
+          clearAccessToken();
+        }
       } finally {
-        setLoading(false);
+        if (mounted) setLoading(false);
       }
     };
 
     restoreSession();
+
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   // ===================== Login / Logout =====================
