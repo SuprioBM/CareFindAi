@@ -23,19 +23,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         let token = getAccessToken();
 
         // 🔥 ALWAYS attempt refresh first (not conditional)
-        let refreshRes = await apiFetch("/auth/refresh", {
-          method: "POST",
-        });
+        // Retry up to 3 total attempts for mobile cookie attach timing.
+        const retryDelays = [150, 300];
+        let refreshRes: Response | null = null;
 
-        // 🔁 Retry once (fixes mobile cookie timing issue)
-        if (!refreshRes.ok) {
-          await sleep(150);
+        for (let attempt = 0; attempt < 3; attempt++) {
+          if (attempt > 0) {
+            await sleep(retryDelays[attempt - 1]);
+          }
+
           refreshRes = await apiFetch("/auth/refresh", {
             method: "POST",
           });
+
+          if (refreshRes.ok) break;
         }
 
-        if (!refreshRes.ok) {
+        if (!refreshRes || !refreshRes.ok) {
           if (mounted) {
             clearAccessToken();
             setUser(null);
