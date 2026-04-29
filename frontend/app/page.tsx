@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useEffect } from "react";
 import Header from '@/components/pageComponents/header';
 import Footer from '@/components/pageComponents/footer';
 
@@ -38,6 +39,18 @@ const features = [
 ];
 
 export default function Home() {
+useEffect(() => {
+  if (process.env.NODE_ENV === "development" || location.search.includes("debug=true")) {
+    const script = document.createElement("script");
+    script.src = "https://cdn.jsdelivr.net/npm/eruda";
+
+    script.onload = () => {
+      (window as any).eruda.init();
+    };
+
+    document.body.appendChild(script);
+  }
+}, []);
   return (
     <div className="bg-surface text-text-base overflow-x-hidden min-h-screen">
       <main>

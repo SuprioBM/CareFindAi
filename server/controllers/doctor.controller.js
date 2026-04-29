@@ -405,11 +405,11 @@ export async function manualSearch(req, res) {
       consultation,
       fees,
       offday,
-    } = req.query;
-
+    } = req.query; 
+     //const{image}= req.body --- frontend to backend new data send to communicate
     // Start with a base filter that always ensures only active + approved doctors are returned.
     // This is the minimum requirement — patients should never see inactive/unapproved doctors.
-    const filter = {
+    const filter = {   
       isActive: true,
       isApproved: true,
     };
