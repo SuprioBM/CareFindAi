@@ -5,18 +5,19 @@ import Link from "next/link";
 import ThemeToggle from "../Themes/ThemeToggle";
 import { useAuth } from "@/authContext/authContext";
 import { usePathname } from "next/navigation";
+import MobileDrawer from "./MobileDrawer";
 
 const navLinks = [
   { name: "Home", href: "/" },
   { name: "Features", href: "#features" },
   { name: "How It Works", href: "#how-it-works" },
-  { name: "Dashboard", href: "/dashboard" },
 ];
 
 export default function Header() {
   const { user, logout, loading } = useAuth();
   const pathname = usePathname();
   const [fullPath, setFullPath] = useState(pathname);
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   useEffect(() => {
     setFullPath(`${window.location.pathname}${window.location.search}`);
@@ -30,6 +31,8 @@ export default function Header() {
 
         {/* LEFT — Logo */}
         <div className="flex items-center gap-3">
+          {/* Mobile hamburger — visible only on small screens */}
+ 
           <span className="material-symbols-outlined text-primary text-3xl">
             medical_services
           </span>
@@ -47,15 +50,38 @@ export default function Header() {
               {link.name}
             </Link>
           ))}
+          {user && (
+            <Link
+              href="/dashboard"
+              className="text-sm font-semibold text-text-sub hover:text-primary transition-colors"
+            >
+              Dashboard
+            </Link>
+          )}
         </nav>
 
         {/* RIGHT — Auth + Theme */}
         <div className="flex items-center gap-6">
 
           <ThemeToggle />
+          <button
+            aria-label={drawerOpen ? "Close menu" : "Open menu"}
+            aria-expanded={drawerOpen}
+            aria-controls="mobile-drawer"
+            onClick={() => setDrawerOpen((s) => !s)}
+            className="md:hidden inline-flex items-center justify-center p-2 rounded-md hover:bg-primary/10 transition mr-2"
+          >
+            <span className="material-symbols-outlined">menu</span>
+          </button>
+          <MobileDrawer
+            open={drawerOpen}
+            onClose={() => setDrawerOpen(false)}
+            navLinks={navLinks}
+            currentPath={fullPath}
+          />
 
           {!loading && (
-            <>
+            <div className="hidden md:flex items-center gap-4">
               {!user ? (
                 <Link
                   href={`/login?redirect=${encodeURIComponent(fullPath)}`}
@@ -79,7 +105,7 @@ export default function Header() {
                   </button>
                 </div>
               )}
-            </>
+            </div>
           )}
 
         </div>

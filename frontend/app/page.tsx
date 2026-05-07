@@ -4,6 +4,9 @@ import Link from 'next/link';
 import { useEffect } from "react";
 import Header from '@/components/pageComponents/header';
 import Footer from '@/components/pageComponents/footer';
+import CarouselSection from '@/components/pageComponents/CarouselSection';
+import ScrollReveal from '@/components/pageComponents/ScrollReveal';
+import MobileFeatureStack from '@/components/pageComponents/MobileFeaturesStack';
 
 const testimonials = [
   {
@@ -57,7 +60,7 @@ useEffect(() => {
         <Header />
 
         {/* ── Hero ───────────────────────────────────────────────── */}
-        <section className="relative pt-24 pb-32 overflow-hidden bg-gradient-to-br from-section-teal to-section-blue">
+        <div  className="relative pt-24 pb-32 overflow-hidden bg-gradient-to-br from-section-teal to-section-blue">
           <div className="max-w-7xl mx-auto px-6 flex flex-col lg:flex-row items-center gap-16">
             <div className="flex-1 text-center lg:text-left z-10">
               <h1 className="text-5xl lg:text-7xl font-black text-text-base leading-[1.1] mb-6 tracking-tight">
@@ -111,10 +114,10 @@ useEffect(() => {
           </div>
           <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-primary/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none" />
           <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-secondary/5 rounded-full blur-3xl translate-y-1/3 -translate-x-1/3 pointer-events-none" />
-        </section>
+        </div>
 
         {/* ── Old Way vs CareFind ────────────────────────────────── */}
-        <section className="py-24 bg-card relative">
+        <ScrollReveal as="section" className="py-24 bg-card relative" threshold={0.25}>
           <div className="max-w-7xl mx-auto px-6">
             <div className="text-center mb-16">
               <h2 className="text-3xl md:text-4xl font-black mb-4">The Old Way vs. CareFind</h2>
@@ -165,10 +168,10 @@ useEffect(() => {
               </div>
             </div>
           </div>
-        </section>
+        </ScrollReveal>
 
         {/* ── Stats ──────────────────────────────────────────────── */}
-        <section className="py-16 border-y border-border bg-section-teal">
+        <ScrollReveal as="section" className="py-16 border-y border-border bg-section-teal" threshold={0.25}>
           <div className="max-w-7xl mx-auto px-6">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-8 divide-x divide-border">
               {[
@@ -184,17 +187,21 @@ useEffect(() => {
               ))}
             </div>
           </div>
-        </section>
+        </ScrollReveal>
 
         {/* ── Features ───────────────────────────────────────────── */}
-        <section className="py-24 bg-card" id="features">
-          <div className="max-w-7xl mx-auto px-6">
-            <div className="text-center mb-16">
-              <h2 className="text-3xl md:text-4xl font-black mb-4">Powerful Features for Better Health</h2>
-              <p className="text-lg text-text-sub max-w-2xl mx-auto">Everything you need to find the right care, all in one place.</p>
-            </div>
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {features.map((f) => (
+          <ScrollReveal
+        as="section"
+        className="relative py-12 md:py-24 bg-card"  // ← py-12 on mobile, py-24 on md+
+        threshold={0.25}
+        id="features"
+      >
+  <div className="max-w-7xl mx-auto px-6">
+    <div className="text-center mb-8 md:mb-16">  {/* ← tighter bottom margin on mobile */}
+      <h2 className="text-3xl md:text-4xl font-black mb-4">Powerful Features for Better Health</h2>
+      <p className="text-lg text-text-sub max-w-2xl mx-auto">Everything you need to find the right care, all in one place.</p>
+    </div>
+         <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-3 gap-6">              {features.map((f) => (
                 <div key={f.title} className="p-8 rounded-3xl bg-section-teal border border-border hover:border-primary/30 hover:shadow-lg transition-all group">
                   <div className="w-14 h-14 bg-card rounded-2xl shadow-sm flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
                     <span className="material-symbols-outlined text-primary text-3xl">{f.icon}</span>
@@ -223,11 +230,15 @@ useEffect(() => {
                 <p className="text-text-sub">Understand exactly why certain conditions and doctors are recommended.</p>
               </div>
             </div>
+               {/* MOBILE STACK */}
+    <div className="md:hidden mt-4">
+      <MobileFeatureStack features={features} />
+    </div>
           </div>
-        </section>
+        </ScrollReveal>
 
         {/* ── How It Works ───────────────────────────────────────── */}
-        <section className="py-24 bg-gradient-to-b from-section-teal to-card" id="how-it-works">
+        <ScrollReveal as="section" className="py-24 bg-gradient-to-b from-section-teal to-card" threshold={0.25} id="how-it-works">
           <div className="max-w-7xl mx-auto px-6">
             <div className="text-center mb-16">
               <h2 className="text-3xl md:text-4xl font-black mb-4">How CareFind Works</h2>
@@ -251,45 +262,18 @@ useEffect(() => {
               </div>
             </div>
           </div>
-        </section>
+        </ScrollReveal>
 
         {/* ── Patient Stories ─────────────────────────────────────── */}
-        <section className="py-24 bg-section-teal border-t border-border">
-          <div className="max-w-7xl mx-auto px-6">
-            <div className="text-center mb-16">
-              <h2 className="text-3xl md:text-4xl font-black mb-4">Patient Stories</h2>
-              <p className="text-lg text-text-sub max-w-2xl mx-auto">
-                Hear from people who found the right care when they needed it most.
-              </p>
-            </div>
-            <div className="grid md:grid-cols-3 gap-8">
-              {testimonials.map((t) => (
-                <div key={t.name} className="bg-card p-8 rounded-3xl border border-border shadow-sm relative">
-                  <span className="material-symbols-outlined text-primary/20 text-6xl absolute top-6 right-6">format_quote</span>
-                  <div className="flex gap-1 text-warning mb-4">
-                    {Array.from({ length: 5 }).map((_, i) => (
-                      <span key={i} className="material-symbols-outlined text-sm">star</span>
-                    ))}
-                  </div>
-                  <p className="text-text-sub mb-6 relative z-10 italic">&ldquo;{t.quote}&rdquo;</p>
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-full bg-section-blue shrink-0" />
-                    <div>
-                      <p className="font-bold text-text-base">{t.name}</p>
-                      <p className="text-sm text-text-muted">{t.location}</p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
+        <ScrollReveal threshold={0.25}>
+          <CarouselSection testimonials={testimonials} />
+        </ScrollReveal>
 
         {/* ── CTA ────────────────────────────────────────────────── */}
-        <section className="py-24 bg-card">
+        <ScrollReveal as="section" className="py-24 bg-card" threshold={0.25}>
           <div className="max-w-5xl mx-auto px-6">
-            <div className="bg-primary rounded-[2.5rem] p-12 md:p-20 text-center text-white relative overflow-hidden shadow-2xl shadow-primary/30">
-              <div className="absolute -top-24 -right-24 w-64 h-64 bg-white/10 rounded-full blur-3xl" />
+            <div className="bg-primary/90 rounded-[2.5rem] p-12 md:p-20 text-center text-white relative overflow-hidden shadow-2xl shadow-primary/30">
+              <div className="absolute -top-24 -right-24 w-64 h-64 bg-white/40 rounded-full blur-3xl" />
               <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-black/10 rounded-full blur-3xl" />
               <div className="relative z-10">
                 <h2 className="text-4xl md:text-5xl font-black mb-6">Find the Right Doctor Today</h2>
@@ -303,7 +287,7 @@ useEffect(() => {
               </div>
             </div>
           </div>
-        </section>
+        </ScrollReveal>
 
       </main>
        

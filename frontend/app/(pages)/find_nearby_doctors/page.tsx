@@ -335,109 +335,138 @@ useEffect(() => {
 
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-surface text-text-base">
-      <main className="flex flex-1 overflow-hidden">
-        {/* ── Left panel ── */}
-        <div className="flex flex-col w-full lg:w-[620px] xl:w-[680px] shrink-0 border-r border-border bg-card z-10 flex-1 lg:flex-none">
-          <div className="p-5 border-b border-border shrink-0">
-            {/* Saved Locations Bar */}
-        {user && (
-          <div className="mt-3">
-            <SavedLocationBar
-              locations={locations}
-              activeId={activeLocationId ?? undefined}
-              onAdd={openSaveModal}
-              onSelect={handleSelectSavedLocation}
-              onDelete={deleteLocation}
-            />
-          </div>
+<main className="flex flex-col lg:flex-row flex-1 overflow-hidden">
+  
+  {/* ── Doctor List Panel ── */}
+  <div
+    className="
+      flex flex-col
+      w-full
+      lg:w-[620px] xl:w-[680px]
+      shrink-0
+      border-b lg:border-b-0 lg:border-r
+      border-border
+      bg-card
+      z-10
+      h-[55vh] lg:h-auto
+    "
+  >
+    {/* Header */}
+    <div className="p-5 border-b border-border shrink-0">
+      
+      {user && (
+        <div className="mt-3">
+          <SavedLocationBar
+            locations={locations}
+            activeId={activeLocationId ?? undefined}
+            onAdd={openSaveModal}
+            onSelect={handleSelectSavedLocation}
+            onDelete={deleteLocation}
+          />
+        </div>
+      )}
+
+      <h1 className="text-2xl font-bold text-text-base mb-1">
+        Find a Doctor
+      </h1>
+
+      <p className="text-text-muted text-sm mb-4">
+        {locLoading
+          ? 'Detecting your location…'
+          : 'Discover top-rated healthcare professionals near you.'}
+      </p>
+
+      <div className="flex flex-wrap gap-2 mb-4">
+        {sessionSpecialization && (
+          <button className="flex h-8 items-center gap-1 rounded-full border border-primary bg-primary/10 text-primary px-3 text-sm font-medium hover:bg-primary/20 transition-colors">
+            {sessionSpecialization}
+            <span className="material-symbols-outlined text-[16px]">
+              close
+            </span>
+          </button>
         )}
-            <h1 className="text-2xl font-bold text-text-base mb-1">Find a Doctor</h1>
-            <p className="text-text-muted text-sm mb-4">
-              {locLoading
-                ? 'Detecting your location…'
-                : 'Discover top-rated healthcare professionals near you.'}
-            </p>
+      </div>
 
-            <div className="flex flex-wrap gap-2 mb-4">
-              {sessionSpecialization && (
-                <button className="flex h-8 items-center gap-1 rounded-full border border-primary bg-primary/10 text-primary px-3 text-sm font-medium hover:bg-primary/20 transition-colors">
-                  {sessionSpecialization}
-                  <span className="material-symbols-outlined text-[16px]">close</span>
-                </button>
-              )}
+      <div className="flex items-center justify-between text-sm">
+        <span className="text-text-muted font-medium">
+          {doctors.length} doctors found
+        </span>
 
-            </div>
+        <button className="flex items-center gap-1.5 text-text-sub hover:text-primary transition-colors font-medium">
+          <span className="material-symbols-outlined text-[18px]">
+            sort
+          </span>
+          Sort by: Recommended
+        </button>
+      </div>
+    </div>
 
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-text-muted font-medium">
-                {doctors.length} doctors found
-              </span>
-              <button className="flex items-center gap-1.5 text-text-sub hover:text-primary transition-colors font-medium">
-                <span className="material-symbols-outlined text-[18px]">sort</span>
-                Sort by: Recommended
-              </button>
-            </div>
-          </div>
-
-          <div className="flex-1 overflow-y-auto p-4 space-y-3">
-            {doctors.length > 0 ? (
-              doctors.map((doc) => (
-                <DoctorCard
-                  key={doc.id}
-                  doc={doc}
-                  isSelected={selectedId === doc.id}
-                  isRouting={routeToId === doc.id}
-                  isFavorited={bookmarkedIds.has(String(doc.id))}
-                  onSelect={() => {
-                    setSelectedId(doc.id);
-                    setRouteToId(doc.id);
-                  }}
-                  onFavorite={() => toggleBookmark(doc.id)}
-                  onGetDirections={() => {
-                    setSelectedId(doc.id);
-                    setRouteToId(doc.id);
-                  }}
-                />
-              ))
-            ) : (
-              <div className="rounded-xl border border-border bg-surface p-6 text-sm text-text-muted">
-                No nearby doctors found.
-              </div>
-            )}
-          </div>
+    {/* Doctor Cards */}
+    <div className="flex-1 overflow-y-auto p-4 space-y-3">
+      {doctors.length > 0 ? (
+        doctors.map((doc) => (
+          <DoctorCard
+            key={doc.id}
+            doc={doc}
+            isSelected={selectedId === doc.id}
+            isRouting={routeToId === doc.id}
+            isFavorited={bookmarkedIds.has(String(doc.id))}
+            onSelect={() => {
+              setSelectedId(doc.id);
+              setRouteToId(doc.id);
+            }}
+            onFavorite={() => toggleBookmark(doc.id)}
+            onGetDirections={() => {
+              setSelectedId(doc.id);
+              setRouteToId(doc.id);
+            }}
+          />
+        ))
+      ) : (
+        <div className="rounded-xl border border-border bg-surface p-6 text-sm text-text-muted">
+          No nearby doctors found.
         </div>
+      )}
+    </div>
+  </div>
 
-        {/* ── Map panel ── */}
-        <div className="hidden lg:flex flex-1 relative overflow-hidden">
-          {userLocation ? (
-            <DoctorMap
-              userLocation={effectiveLoc}
-              doctors={doctors.map((d, index) => ({
-                id: typeof d.id === 'number' ? d.id : index + 1,
-                name: d.name,
-                specialty: d.specialty,
-                lat: d.lat,
-                lng: d.lng,
-                photo: d.photo,
-                isSelected: selectedId === d.id,
-              }))}
-              onDoctorClick={(id) => {
-                setSelectedId(id);
-                setRouteToId(id);
-              }}
-              routeTo={routeTo}
-              onClearRoute={() => setRouteToId(null)}
-            />
-          ) : (
-            <div className="flex-1 flex flex-col items-center justify-center bg-surface gap-3 text-text-muted">
-              <span className="material-symbols-outlined text-[52px] text-primary/30 animate-pulse">
-                location_searching
-              </span>
-              <p className="text-sm">Detecting your location…</p>
-            </div>
-          )}
-        </div>
-      </main>
+  {/* ── Map Panel ── */}
+  <div
+    className="
+      w-full
+      h-[45vh]
+      lg:h-auto
+      flex-1
+      relative
+      overflow-hidden
+    "
+  >
+    {userLocation ? (
+      <DoctorMap
+        userLocation={effectiveLoc}
+        doctors={doctors.map((d, index) => ({
+          id: typeof d.id === 'number' ? d.id : index + 1,
+          name: d.name,
+          specialty: d.specialty,
+          lat: d.lat,
+          lng: d.lng,
+          photo: d.photo,
+          isSelected: selectedId === d.id,
+        }))}
+        onDoctorClick={(id) => {
+          setSelectedId(id);
+          setRouteToId(id);
+        }}
+        routeTo={routeTo}
+        onClearRoute={() => setRouteToId(null)}
+      />
+    ) : (
+      <div className="flex h-full items-center justify-center bg-surface">
+        <p className="text-text-muted">Loading map...</p>
+      </div>
+    )}
+  </div>
+</main>
       <SavedLocationModal
       open={modalOpen}
       onClose={() => setModalOpen(false)}
