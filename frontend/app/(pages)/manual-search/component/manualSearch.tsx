@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { fetchNearbyDoctors } from '@/lib/findnearByDoctors';
 import { apiFetch } from '@/lib/api';
 import SavedLocationModal from '@/components/ModalComponent/SavedLocationModal';
+import { SpecializationOption, SpecializationResponse } from '@/types/types';
 
 type SavedLocation = {
   _id: string;
@@ -19,7 +20,12 @@ export default function ManualSearchPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
-  const specialist = searchParams.get("specialist") || "";
+  const specialistFromUrl = searchParams.get("specialist") || "";
+
+  // ── SPECIALIZATION STATE ──────────────
+  const [specialist, setSpecialist] = useState("");
+  const [specializations, setSpecializations] = useState<SpecializationOption[]>([]);
+  const [loadingSpecializations, setLoadingSpecializations] = useState(true);
 
   // ── MANUAL INPUTS ─────────────────────
   const [area, setArea] = useState("");
@@ -34,6 +40,41 @@ export default function ManualSearchPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [modalCoords, setModalCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [modalAddress, setModalAddress] = useState("");
+
+  // ── FETCH SPECIALIZATIONS ─────────────
+  useEffect(() => {
+    async function loadSpecializations() {
+      try {
+        setLoadingSpecializations(true);
+        const res = await apiFetch('/specializations');
+        const data: SpecializationResponse = await res.json();
+        if (data.success) {
+          setSpecializations(data.data);
+        }
+      } catch (err) {
+        console.error('Failed to load specializations:', err);
+      } finally {
+        setLoadingSpecializations(false);
+      }
+    }
+    loadSpecializations();
+  }, []);
+
+  // ── AUTO-SELECT FROM URL ──────────────
+  useEffect(() => {
+    if (specialistFromUrl && specializations.length > 0) {
+      // Try to find specialization by exact name match from URL
+      const foundSpec = specializations.find(
+        (spec) => spec.name === specialistFromUrl
+      );
+      if (foundSpec) {
+        setSpecialist(foundSpec.name);
+      } else {
+        // Fallback: if not found, keep as is
+        setSpecialist(specialistFromUrl);
+      }
+    }
+  }, [specialistFromUrl, specializations]);
 
   // ── LOAD SAVED LOCATIONS ──────────────
   useEffect(() => {
@@ -156,6 +197,23 @@ export default function ManualSearchPage() {
 
         {/* ── MANUAL INPUT ──────────────────── */}
         <section className="bg-card border border-border rounded-2xl p-6 space-y-4">
+
+          {/* Specialization Dropdown */}
+          <select
+            className="input bg-card"
+            value={specialist}
+            onChange={(e) => setSpecialist(e.target.value)}
+            disabled={loadingSpecializations}
+          >
+            <option value="">
+              {loadingSpecializations ? "Loading specialties..." : "Select Speciality"}
+            </option>
+            {specializations.map((spec) => (
+              <option key={spec._id} value={spec.name}>
+                {spec.name}
+              </option>
+            ))}
+          </select>
 
           <input
             className="input"

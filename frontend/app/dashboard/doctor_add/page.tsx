@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import DashboardSidebar from '@/components/dashboard/dashBoardsidebar';
 import SuggestDoctorModal from '@/components/ModalComponent/SuggestedDoctor';
 import { apiFetch } from '@/lib/api';
 
@@ -33,13 +32,7 @@ export default function SuggestDoctorPage() {
   }, []);
 
   return (
-    <div className="bg-surface text-text-base h-screen flex overflow-hidden">
-
-      {/* SIDEBAR */}
-      <DashboardSidebar />
-
-      {/* MAIN */}
-      <main className="flex-1 overflow-y-auto p-6 lg:p-10">
+    <div className="p-6 lg:p-10">
 
         {/* HEADER */}
         <div className="flex justify-between items-center mb-6">
@@ -95,7 +88,6 @@ export default function SuggestDoctorPage() {
             fetchSuggestions();
           }}
         />
-      </main>
     </div>
   );
 }

@@ -5,7 +5,6 @@ import dynamic from 'next/dynamic';
 import { apiFetch } from '@/lib/api';
 import { useAuth } from '@/authContext/authContext';
 import SavedLocationModal from "@/components/ModalComponent/SavedLocationModal";
-import SavedLocationBar from "@/components/ModalComponent/SavedLocationBar";
 import { useSavedLocations,SavedLocation } from "@/lib/useSavedLocations";
 import { useRouter } from 'next/navigation';
 
@@ -348,23 +347,11 @@ useEffect(() => {
       border-border
       bg-card
       z-10
-      h-[55vh] lg:h-auto
+      h-[70vh] lg:h-auto
     "
   >
     {/* Header */}
     <div className="p-5 border-b border-border shrink-0">
-      
-      {user && (
-        <div className="mt-3">
-          <SavedLocationBar
-            locations={locations}
-            activeId={activeLocationId ?? undefined}
-            onAdd={openSaveModal}
-            onSelect={handleSelectSavedLocation}
-            onDelete={deleteLocation}
-          />
-        </div>
-      )}
 
       <h1 className="text-2xl font-bold text-text-base mb-1">
         Find a Doctor
@@ -376,14 +363,26 @@ useEffect(() => {
           : 'Discover top-rated healthcare professionals near you.'}
       </p>
 
-      <div className="flex flex-wrap gap-2 mb-4">
-        {sessionSpecialization && (
-          <button className="flex h-8 items-center gap-1 rounded-full border border-primary bg-primary/10 text-primary px-3 text-sm font-medium hover:bg-primary/20 transition-colors">
-            {sessionSpecialization}
-            <span className="material-symbols-outlined text-[16px]">
-              close
-            </span>
-          </button>
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex flex-wrap gap-2">
+          {sessionSpecialization && (
+            <div className="flex h-8 items-center gap-1 rounded-full border border-primary bg-primary/10 text-primary px-3 text-sm font-medium">
+              {sessionSpecialization}
+              <span className="material-symbols-outlined text-[16px]">close</span>
+            </div>
+          )}
+        </div>
+  
+        {user && (
+          <div className="ml-4">
+            <button
+              onClick={openSaveModal}
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border bg-card text-sm font-medium hover:bg-white/5 transition-colors"
+            >
+              <span className="material-symbols-outlined text-[18px]">add</span>
+              Save Location
+            </button>
+          </div>
         )}
       </div>
 

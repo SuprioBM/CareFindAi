@@ -115,28 +115,50 @@ function MapSync({ center }: { center: [number, number] }) {
   return null;
 }
 
-// ── Custom +/- / locate buttons using Leaflet's map instance ─
-function MapControls({ userLocation }: { userLocation: [number, number] }) {
+// ── Floating toolbar controls (responsive) ─────────────────
+function MapControls({
+  userLocation,
+  routeTo,
+  onClearRoute,
+}: {
+  userLocation: [number, number];
+  routeTo: [number, number] | null;
+  onClearRoute: () => void;
+}) {
   const map = useMap();
 
-  const btn =
-    'size-10 bg-card rounded-xl shadow border border-border flex items-center justify-center text-text-sub hover:text-primary hover:border-primary transition-colors';
+  const btnBase =
+    'bg-card rounded-lg shadow border border-border flex items-center justify-center text-text-sub hover:text-primary hover:border-primary transition-colors';
+
+  // responsive sizing: mobile smaller, desktop larger
+  const btnClass = 'w-8 h-8 md:w-10 md:h-10 ' + btnBase;
 
   return (
-    <div className="absolute bottom-25 right-4 z-1000 flex flex-col gap-2 pointer-events-auto">
-      <button className={btn} onClick={() => map.zoomIn()} title="Zoom in">
-        <span className="material-symbols-outlined">add</span>
+    <div className="absolute right-4 top-1/6 lg:top-120 z-1000 flex flex-col gap-2 pointer-events-auto">
+      <button className={btnClass} onClick={() => map.zoomIn()} title="Zoom in">
+        <span className="material-symbols-outlined text-[16px] md:text-[18px]">add</span>
       </button>
-      <button className={btn} onClick={() => map.zoomOut()} title="Zoom out">
-        <span className="material-symbols-outlined">remove</span>
+      <button className={btnClass} onClick={() => map.zoomOut()} title="Zoom out">
+        <span className="material-symbols-outlined text-[16px] md:text-[18px]">remove</span>
       </button>
       <button
-        className={`${btn}`}
+        className={btnClass}
         onClick={() => map.setView(userLocation, 14, { animate: true })}
         title="My location"
       >
-        <span className="material-symbols-outlined">my_location</span>
+        <span className="material-symbols-outlined text-[16px] md:text-[18px]">my_location</span>
       </button>
+
+      {routeTo && (
+        <button
+          className={btnClass}
+          onClick={onClearRoute}
+          title="Clear route"
+          aria-label="Clear route"
+        >
+          <span className="material-symbols-outlined text-[16px] md:text-[18px]">close</span>
+        </button>
+      )}
     </div>
   );
 }
@@ -228,7 +250,7 @@ export default function DoctorMap({ userLocation, doctors, onDoctorClick, routeT
       <TileLayer key={tileUrl} url={tileUrl} attribution={attribution} maxZoom={19} />
 
       <MapSync center={userLocation} />
-      <MapControls userLocation={userLocation} />
+      <MapControls userLocation={userLocation} routeTo={routeTo} onClearRoute={onClearRoute} />
 
       <RouteLayer
         userLocation={userLocation}
@@ -278,47 +300,37 @@ export default function DoctorMap({ userLocation, doctors, onDoctorClick, routeT
       ))}
     </MapContainer>
 
-    {/* ── Route info card ── */}
-    {routeInfo && (
+    {/* ── Compact Route Card (responsive) ── */}
+    {routeInfo && selectedDoc && (
       <div
-        style={{ position: 'absolute', bottom: '100px', left: '16px', zIndex: 1000 }}
-        className="bg-card border border-primary/30 rounded-2xl shadow-xl p-4 min-w-56 pointer-events-auto"
+        className="hidden md:block pointer-events-auto absolute left-4 bottom-4 md:bottom-24 z-1000 max-w-[220px] md:max-w-[260px] bg-card/95 backdrop-blur rounded-2xl border border-border shadow-lg p-3 transition transform duration-200"
+        role="status"
+        aria-live="polite"
       >
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <div className="size-7 rounded-lg bg-primary/10 flex items-center justify-center">
-              <span className="material-symbols-outlined text-primary text-[16px]">route</span>
+        <div className="flex items-center gap-3">
+          <img
+            src={selectedDoc.photo}
+            alt={selectedDoc.name}
+            className="w-12 h-12 md:w-14 md:h-14 rounded-lg object-cover border border-border"
+          />
+
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-semibold truncate">{selectedDoc.name}</div>
+            <div className="text-xs text-primary truncate">{selectedDoc.specialty}</div>
+            <div className="mt-1 text-[12px] text-text-muted flex items-center gap-2">
+              <span className="font-bold text-text-base">{routeInfo.distance}</span>
+              <span className="text-text-muted">•</span>
+              <span>{routeInfo.duration}</span>
             </div>
-            <span className="text-xs font-bold text-text-base uppercase tracking-wider">Route</span>
           </div>
+
           <button
             onClick={onClearRoute}
-            className="size-6 rounded-lg flex items-center justify-center text-text-muted hover:text-error hover:bg-error/10 transition-colors"
+            className="ml-2 inline-flex items-center p-2 rounded-lg bg-card border border-border hover:bg-white/5 transition-colors"
             title="Clear route"
           >
             <span className="material-symbols-outlined text-[16px]">close</span>
           </button>
-        </div>
-
-        <p className="text-xs text-text-muted mb-3 truncate max-w-48">
-          To: <span className="text-text-base font-semibold">{routeInfo.docName}</span>
-        </p>
-
-        <div className="grid grid-cols-2 gap-2">
-          <div className="bg-surface rounded-xl p-2.5 text-center border border-border">
-            <div className="flex items-center justify-center gap-1 text-primary mb-1">
-              <span className="material-symbols-outlined text-[14px]">straighten</span>
-            </div>
-            <div className="text-sm font-bold text-text-base">{routeInfo.distance}</div>
-            <div className="text-[10px] text-text-muted">Distance</div>
-          </div>
-          <div className="bg-surface rounded-xl p-2.5 text-center border border-border">
-            <div className="flex items-center justify-center gap-1 text-primary mb-1">
-              <span className="material-symbols-outlined text-[14px]">schedule</span>
-            </div>
-            <div className="text-sm font-bold text-text-base">{routeInfo.duration}</div>
-            <div className="text-[10px] text-text-muted">Drive time</div>
-          </div>
         </div>
       </div>
     )}

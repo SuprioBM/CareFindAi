@@ -49,7 +49,7 @@ router.post("/", protect, requireAdmin, createSpecialization);
  * 
  * Response: 200 OK with array of all specializations including doctorCount field
  */
-router.get("/", protect, requireAdmin, getAllSpecializations);
+router.get("/", protect, getAllSpecializations);
 
 /**
  * GET /api/specializations/:id

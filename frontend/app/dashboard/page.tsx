@@ -17,7 +17,6 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import DashboardSidebar from '../../components/dashboard/dashBoardsidebar';
 import { useAuth } from '@/authContext/authContext';
 import { apiFetch } from '@/lib/api';
 
@@ -213,14 +212,8 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="bg-surface text-text-base min-h-screen flex flex-col antialiased">
-
-      {/* ── Body ── */}
-      <div className="flex flex-1 overflow-hidden">
-        <DashboardSidebar />
-
-        <main className="flex-1 overflow-y-auto bg-surface p-6 md:p-10">
-          <div className="max-w-6xl mx-auto flex flex-col gap-10">
+    <div className="p-6 md:p-10">
+      <div className="max-w-6xl mx-auto flex flex-col gap-10">
 
             {/* Welcome */}
             <div>
@@ -367,8 +360,6 @@ export default function DashboardPage() {
               </div>
             </section>
 
-          </div>
-        </main>
       </div>
     </div>
   );
