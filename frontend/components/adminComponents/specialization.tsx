@@ -758,7 +758,7 @@ export default function Specializations() {
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
 
   return (
-    <div className="p-6 lg:p-8">
+    <div className="p-4 sm:p-6 lg:p-8">
       {/* Page Header with Title and Add Button */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8">
         <div>
@@ -767,7 +767,7 @@ export default function Specializations() {
         </div>
         <button
           onClick={() => setShowModal(true)}
-          className="flex items-center justify-center rounded-xl h-10 px-5 bg-primary hover:bg-primary-hover text-white text-sm font-bold transition-colors shadow-lg shadow-primary/20 self-start sm:self-auto"
+          className="w-full sm:w-auto flex items-center justify-center rounded-xl h-10 px-5 bg-primary hover:bg-primary-hover text-white text-sm font-bold transition-colors shadow-lg shadow-primary/20 self-start sm:self-auto"
         >
           <span className="material-symbols-outlined mr-2 text-[20px]">add</span>
           Add Specialization
@@ -775,7 +775,7 @@ export default function Specializations() {
       </div>
 
       {/* Search and Filter Controls */}
-      <div className="flex flex-wrap items-center justify-between gap-4 p-4 bg-card rounded-2xl border border-border mb-8">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 p-4 bg-card rounded-2xl border border-border mb-8">
         <div className="relative w-full md:w-auto flex-1 max-w-md">
           <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-text-muted text-[20px]">
             search
@@ -788,17 +788,17 @@ export default function Specializations() {
             className="w-full h-11 pl-10 pr-4 rounded-xl border border-border bg-surface text-text-base text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all placeholder:text-text-muted"
           />
         </div>
-        <div className="flex gap-3">
+        <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="h-11 px-4 rounded-xl border border-border bg-surface text-text-base text-sm focus:ring-2 focus:ring-primary outline-none appearance-none min-w-35 cursor-pointer"
+            className="h-11 px-4 rounded-xl border border-border bg-surface text-text-base text-sm focus:ring-2 focus:ring-primary outline-none appearance-none min-w-35 cursor-pointer w-full sm:w-auto"
           >
             <option>All Statuses</option>
             <option>Active</option>
             <option>Inactive</option>
           </select>
-          <button className="flex items-center justify-center rounded-xl h-11 px-5 bg-surface border border-border text-text-base hover:border-primary hover:text-primary transition-colors text-sm font-medium gap-2">
+          <button className="w-full sm:w-auto flex items-center justify-center rounded-xl h-11 px-5 bg-surface border border-border text-text-base hover:border-primary hover:text-primary transition-colors text-sm font-medium gap-2">
             <span className="material-symbols-outlined text-[20px]">sort</span>
             <span className="hidden sm:inline">Sort By</span>
           </button>
@@ -861,7 +861,7 @@ export default function Specializations() {
 
       {/* Pagination Controls */}
       {!fetching && filtered.length > 0 && (
-        <div className="flex items-center justify-between mt-8 pt-6 border-t border-border">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mt-8 pt-6 border-t border-border">
           <span className="text-sm text-text-muted">
             Showing{' '}
             <span className="text-text-base font-medium">

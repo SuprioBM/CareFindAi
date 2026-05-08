@@ -47,17 +47,17 @@ export default function ReviewDoctorModal({
       : request.specialization;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-card w-full max-w-3xl p-6 rounded-xl max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-card w-full max-w-3xl p-4 sm:p-6 rounded-xl max-h-[90vh] overflow-y-auto">
 
         {/* HEADER */}
-        <div className="flex justify-between mb-4">
+        <div className="flex items-center justify-between mb-4 gap-3">
           <h2 className="text-xl font-bold">Review Doctor Request</h2>
           <button onClick={onClose}>✕</button>
         </div>
 
         {/* FULL DETAILS GRID */}
-        <div className="grid md:grid-cols-2 gap-4 text-sm border border-border p-4 rounded-lg">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm border border-border p-4 rounded-lg">
 
           <p><b>Name:</b> {request.fullName || '-'}</p>
           <p><b>Email:</b> {request.email || '-'}</p>
@@ -103,8 +103,8 @@ export default function ReviewDoctorModal({
         )}
 
         {/* ACTIONS */}
-        <div className="flex justify-end gap-3 mt-6">
-          <button onClick={onClose} className="px-4 py-2 border rounded">
+        <div className="flex flex-col sm:flex-row sm:justify-end gap-3 mt-6">
+          <button onClick={onClose} className="px-4 py-2 border rounded w-full sm:w-auto">
             Cancel
           </button>
 
@@ -112,14 +112,14 @@ export default function ReviewDoctorModal({
             <>
               <button
                 onClick={reject}
-                className="px-4 py-2 bg-red-500 text-white rounded"
+                className="px-4 py-2 bg-red-500 text-white rounded w-full sm:w-auto"
               >
                 Reject
               </button>
 
               <button
                 onClick={approve}
-                className="px-4 py-2 bg-green-600 text-white rounded"
+                className="px-4 py-2 bg-green-600 text-white rounded w-full sm:w-auto"
               >
                 Approve
               </button>

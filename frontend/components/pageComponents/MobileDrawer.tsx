@@ -68,7 +68,10 @@ export default function MobileDrawer({
             <span className="material-symbols-outlined">close</span>
           </button>
         </div>
-
+        {user && (<div className="px-4 py-4 border-b border-primary/10">
+          <p className="text-sm font-semibold text-text-base">{user.name}</p>
+        </div>
+        )}
         <nav className="px-4 py-6 flex flex-col gap-3" aria-label="Primary">
           {navLinks.map((link) => (
             <Link

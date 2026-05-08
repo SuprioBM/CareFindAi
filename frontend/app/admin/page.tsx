@@ -15,7 +15,7 @@
  * - Responsive design with admin guards
  */
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { Section } from '../../types/types';
 import AdminSidebar from '../../components/adminComponents/adminSideBar';
 import AdminDashboard from '../../components/adminComponents/adminDashboard';
@@ -40,6 +40,7 @@ import AdminPageGuard from '@/components/adminComponents/AdminPageGuard';
 export default function AdminPage() {
   // Current active section to display in the main content area
   const [activeSection, setActiveSection] = useState<Section>('dashboard');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   // Get current user and logout function from auth context
   const { user, logout } = useAuth();
   // Router for navigation after logout
@@ -50,6 +51,13 @@ export default function AdminPage() {
     logout();
     router.push('/');
   };
+
+  useEffect(() => {
+    document.body.style.overflow = isSidebarOpen ? 'hidden' : '';
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isSidebarOpen]);
 
 
 
@@ -101,13 +109,34 @@ export default function AdminPage() {
     }
   }
 
+  const handleNavigate = (section: Section) => {
+    setActiveSection(section);
+    setIsSidebarOpen(false);
+  };
+
   return (
     // Guard to ensure only authenticated admins can access this page
     <AdminPageGuard>
       {/* Main container - flexbox layout with sidebar and content area */}
       <div className="flex h-screen overflow-hidden bg-surface">
+        {/* Mobile Backdrop */}
+        {isSidebarOpen && (
+          <button
+            type="button"
+            aria-label="Close sidebar"
+            onClick={() => setIsSidebarOpen(false)}
+            className="fixed inset-0 z-30 bg-black/50 lg:hidden"
+          />
+        )}
+
         {/* Sidebar Navigation */}
-        <AdminSidebar active={activeSection} onNavigate={setActiveSection} />
+        <div
+          className={`fixed inset-y-0 left-0 z-40 w-64 transform transition-transform duration-300 ease-out lg:static lg:z-20 lg:translate-x-0 lg:flex lg:shrink-0 ${
+            isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
+          }`}
+        >
+          <AdminSidebar active={activeSection} onNavigate={handleNavigate} />
+        </div>
 
         {/* Main Content Area */}
         <div className="flex-1 flex flex-col min-w-0">
@@ -115,6 +144,14 @@ export default function AdminPage() {
           <header className="h-16 px-4 sm:px-6 flex items-center justify-between border-b border-border bg-card/80 backdrop-blur-md z-10 sticky top-0 shrink-0">
             {/* Left Section - Back button */}
             <div className="flex items-center gap-3 min-w-0">
+              <button
+                type="button"
+                onClick={() => setIsSidebarOpen(true)}
+                className="inline-flex items-center justify-center rounded-lg h-9 w-9 border border-border bg-card text-text-sub hover:bg-section-teal hover:text-text-base transition-colors lg:hidden"
+                aria-label="Open sidebar"
+              >
+                <span className="material-symbols-outlined text-[20px]">menu</span>
+              </button>
               <Link
                 href="/"
                 className="inline-flex items-center gap-2 rounded-lg h-9 px-3 bg-card border border-border text-text-sub hover:bg-section-teal hover:text-text-base text-sm font-medium transition-colors"

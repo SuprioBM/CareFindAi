@@ -356,7 +356,7 @@ export default function DoctorManagement({ onNavigate }: Props) {
   }
 
   return (
-    <div className="p-6 lg:p-8">
+    <div className="p-4 sm:p-6 lg:p-8">
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-6">
         <div>
           <h2 className="text-2xl font-bold tracking-tight text-text-base">

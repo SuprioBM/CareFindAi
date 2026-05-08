@@ -42,7 +42,7 @@ export default function AdminDoctorSuggestionsPage() {
   };
 
   return (
-    <div className="p-6">
+    <div className="p-4 sm:p-6">
 
       <h1 className="text-2xl font-bold mb-6">
         Doctor Join Requests
@@ -55,7 +55,8 @@ export default function AdminDoctorSuggestionsPage() {
         </div>
       ) : (
         <div className="bg-card border border-border rounded-xl overflow-hidden">
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm min-w-[720px]">
             <thead className="bg-section-teal">
               <tr>
                 <th className="p-4 text-left">Name</th>
@@ -97,6 +98,7 @@ export default function AdminDoctorSuggestionsPage() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 

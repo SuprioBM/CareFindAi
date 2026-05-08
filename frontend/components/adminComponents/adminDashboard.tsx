@@ -124,7 +124,7 @@ export default function AdminDashboard() {
   ];
 
   return (
-    <div className="p-6 lg:p-8">
+    <div className="p-4 sm:p-6 lg:p-8">
 
       {/* HEADER (UNCHANGED) */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8">
@@ -137,14 +137,14 @@ export default function AdminDashboard() {
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
-          <button className="px-4 py-2 rounded-lg border border-border bg-card text-sm font-medium text-text-sub hover:bg-section-teal transition-colors flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+          <button className="w-full sm:w-auto px-4 py-2 rounded-lg border border-border bg-card text-sm font-medium text-text-sub hover:bg-section-teal transition-colors flex items-center justify-center gap-2">
             <span className="material-symbols-outlined text-[18px]">calendar_today</span>
             Last 30 Days
             <span className="material-symbols-outlined text-[18px]">expand_more</span>
           </button>
 
-          <button className="px-4 py-2 rounded-lg bg-primary hover:bg-primary-hover text-white text-sm font-medium transition-colors shadow-lg shadow-primary/20 flex items-center gap-2">
+          <button className="w-full sm:w-auto px-4 py-2 rounded-lg bg-primary hover:bg-primary-hover text-white text-sm font-medium transition-colors shadow-lg shadow-primary/20 flex items-center justify-center gap-2">
             <span className="material-symbols-outlined text-[18px]">download</span>
             Export
           </button>

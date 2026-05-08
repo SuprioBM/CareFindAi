@@ -42,7 +42,7 @@ export default function AddDoctor({ onNavigate }: Props) {
   const [isActive, setIsActive] = useState(true);
 
   return (
-    <div className="p-6 lg:p-8">
+    <div className="p-4 sm:p-6 lg:p-8">
       // Breadcrumb
       {/* Breadcrumb */}
       <div className="mb-6 max-w-4xl mx-auto w-full">
@@ -62,11 +62,11 @@ export default function AddDoctor({ onNavigate }: Props) {
 
       // Form Card
       {/* Form Card */}
-      <div className="bg-card rounded-2xl border border-border shadow-xl max-w-4xl w-full mx-auto p-8 lg:p-10">
+      <div className="bg-card rounded-2xl border border-border shadow-xl max-w-4xl w-full mx-auto p-5 sm:p-8 lg:p-10">
         <form className="space-y-8" onSubmit={(e) => e.preventDefault()}>
           // Photo
           {/* Photo */}
-          <div className="flex items-center gap-6 pb-8 border-b border-border">
+          <div className="flex flex-col sm:flex-row sm:items-center items-start gap-4 sm:gap-6 pb-8 border-b border-border">
             <div className="h-24 w-24 rounded-full bg-surface border-2 border-dashed border-border flex items-center justify-center text-text-muted cursor-pointer hover:bg-section-teal hover:border-primary/50 hover:text-primary transition-all shrink-0">
               <span className="material-symbols-outlined text-[32px]">add_a_photo</span>
             </div>
@@ -150,15 +150,15 @@ export default function AddDoctor({ onNavigate }: Props) {
 
           // Actions
           {/* Actions */}
-          <div className="flex justify-end gap-4 pt-4">
+          <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 pt-4">
             <button
               type="button"
               onClick={() => onNavigate('doctors')}
-              className="px-6 py-3 text-sm font-medium text-text-sub hover:text-text-base hover:bg-section-teal rounded-xl transition-colors border border-transparent hover:border-border"
+              className="w-full sm:w-auto px-6 py-3 text-sm font-medium text-text-sub hover:text-text-base hover:bg-section-teal rounded-xl transition-colors border border-transparent hover:border-border"
             >
               Cancel
             </button>
-            <button type="submit" className="px-8 py-3 text-sm font-bold text-white bg-primary hover:bg-primary-hover rounded-xl shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all flex items-center gap-2">
+            <button type="submit" className="w-full sm:w-auto px-8 py-3 text-sm font-bold text-white bg-primary hover:bg-primary-hover rounded-xl shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all flex items-center justify-center gap-2">
               <span className="material-symbols-outlined text-[20px]">save</span>
               Save Doctor
             </button>
