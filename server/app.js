@@ -37,6 +37,11 @@ app.use(
 );
 
 
+/* -------------------- Parsers --------------------------- */
+app.use(cookieParser());
+app.use(express.json({ limit: "1mb" }));
+app.use(express.urlencoded({ extended: true }));
+
 app.get("/test-cookie", (req, res) => {
   res.cookie("test", "hello", {
     httpOnly: true,
@@ -51,11 +56,6 @@ app.get("/test-cookie", (req, res) => {
 app.get("/check-cookie", (req, res) => {
   res.json(req.cookies);
 });
-/* -------------------- Parsers --------------------------- */
-app.use(cookieParser());
-app.use(express.json({ limit: "1mb" }));
-app.use(express.urlencoded({ extended: true }));
-
 /* -------------------- Routes ---------------------------- */
 app.get("/", (req, res) => {
   res.send("API is running 🚀");
