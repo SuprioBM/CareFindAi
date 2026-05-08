@@ -15,7 +15,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const restoreSession = async () => {
       try {
-        const res = await apiFetch("/auth/refresh", { method: "POST" }); // sends HttpOnly cookie automatically
+        const sessionId = localStorage.getItem("sessionId");
+        if (!sessionId) {
+          setUser(null);
+          return;
+        }
+
+        const res = await apiFetch("/auth/refresh", {
+          method: "POST",
+          body: JSON.stringify({ sessionId }),
+        });
         if (res.ok) {
           const data = await res.json();
           setAccessToken(data.accessToken); // save in memory
@@ -49,7 +58,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const interval = setInterval(
       async () => {
         try {
-          const res = await apiFetch("/auth/refresh", { method: "POST" });
+          const res = await apiFetch("/auth/refresh", { method: "POST", body: JSON.stringify({ sessionId: localStorage.getItem("sessionId") }) });
           if (res.ok) {
             const data = await res.json();
             setAccessToken(data.accessToken);
@@ -70,9 +79,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // ===================== Login / Logout =====================
-  const login = (user: User, accessToken: string) => {
+  const login = (user: User, accessToken: string, sessionId: string) => {
     setUser(user);
-    setAccessToken(accessToken);
+    setAccessToken(accessToken);    
+    localStorage.setItem("sessionId", sessionId);
   };
 
   const logout = useCallback(async (silent?: boolean): Promise<void> => {

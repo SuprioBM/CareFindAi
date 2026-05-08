@@ -3,8 +3,8 @@ export function getRefreshCookieOptions() {
 
   return {
     httpOnly: true,
-    secure: true,        
-    sameSite: "None",    
+    secure: isProd,
+    sameSite: isProd ? "None" : "Lax",
     path: "/", 
   };
 }

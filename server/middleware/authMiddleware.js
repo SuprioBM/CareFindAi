@@ -55,9 +55,9 @@ export async function protect(req, res, next) {
 // ===================== Refresh token handler =====================
 export async function refresh(req, res) {
   const redis = getRedis();
-
   try {
-    const refreshToken = req.cookies.refresh_token;
+    const sessionId = req.body.sessionId;
+    const refreshToken = await redis.get(`sid:${sessionId}`);
     if (!refreshToken) {
       return res.status(401).json({ message: "No refresh token provided" });
     }

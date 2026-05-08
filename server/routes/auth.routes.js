@@ -9,6 +9,7 @@ import { originGuard } from "../middleware/originGuard.js";
 import {
   googleStart,
   googleCallback,
+  googleExchange,
 } from "../controllers/googleAuth.controller.js";
 
 import {
@@ -37,7 +38,7 @@ router.post(
   login,
 );
 router.post("/logout", originGuard, logout);
-router.post("/refresh", originGuard, arcjetProtect({ requested: 1 }), refresh);
+router.post("/refresh", refresh);
 
 // Example protected route
 router.get("/me", protect, (req, res) => {
@@ -87,6 +88,7 @@ router.post(
 // Google OAuth redirect flow
 router.get("/google/start", arcjetProtect({ requested: 2 }), googleStart);
 router.get("/google/callback", arcjetProtect({ requested: 2 }), googleCallback);
+router.post("/google/exchange", googleExchange);
 
 
 

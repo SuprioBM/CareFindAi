@@ -38,6 +38,9 @@ export default function LoginForm() {
     });
 
     const data = await res.json();
+    console.log(data);
+    
+
     const isVerified = data?.user?.isVerified;
 
     if (isVerified === false) {
@@ -50,7 +53,7 @@ export default function LoginForm() {
       throw new Error(data?.message || 'Login failed');
     }
 
-    login(data.user, data.accessToken);
+    login(data.user, data.accessToken, data.sessionId);
     router.push(redirect || '/');
   };
 

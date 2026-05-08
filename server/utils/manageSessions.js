@@ -38,14 +38,11 @@ export async function issueSession(req, res, user) {
     { expiresIn: ACCESS_EXP },
   );
 
-  res.cookie(
-    "refresh_token",
-    refreshToken,
-    getRefreshCookieOptionsWithMaxAge(REFRESH_EXP * 1000),
-  );
+ 
 
   return {
     accessToken,
+    sessionId: sid,
     user: { id: user._id.toString(), name: user.name, email: user.email, isVerified: user.emailVerified},
   };
 }

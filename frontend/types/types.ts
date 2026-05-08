@@ -5,12 +5,13 @@ type User = {
   userID: string;
   role: String;
   profileImage?: string;
+
 };
 
 type AuthContextType = {
   user: User | null;
   loading: boolean;
-  login: (user: User, accessToken: string) => void;
+  login: (user: User, accessToken: string, sessionId: string) => void;
   logout: (silent?: boolean) => Promise<void>;
 };
 
