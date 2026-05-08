@@ -3,10 +3,6 @@ import User from "../models/User.model.js";
 import { getRedis } from "../config/redis.js";
 import { googleClient, buildGoogleAuthUrl } from "../config/googleOAuth.js";
 import { issueSession } from "../utils/manageSessions.js";
-import {
-  getRefreshCookieOptions,
-  getRefreshCookieOptionsWithMaxAge,
-} from "../utils/cookies.js";
 
 // 10 minutes for state
 const STATE_TTL = 10 * 60;
@@ -144,17 +140,10 @@ export async function googleCallback(req, res) {
       EX: OAUTH_CODE_TTL,
     });
 
-    // 7) Store exchange code in httpOnly cookie and redirect without sensitive params
-    res.cookie(
-      "oauth_code",
-      exchangeCode,
-      getRefreshCookieOptionsWithMaxAge(OAUTH_CODE_TTL * 1000),
-    );
-
-    // 8) Redirect to frontend with a non-sensitive flag to trigger exchange
+    // 7) Redirect to frontend with one-time exchange code in URL
     const clientOrigin = process.env.CLIENT_ORIGIN || "http://localhost:3000";
     const redirectUrl = new URL(redirectPath, clientOrigin);
-    redirectUrl.searchParams.set("oauth", "1");
+    redirectUrl.searchParams.set("oauth_code", exchangeCode);
     return res.redirect(redirectUrl.toString());
   } catch (err) {
     console.error("googleCallback error:", err);
@@ -165,7 +154,7 @@ export async function googleCallback(req, res) {
 export async function googleExchange(req, res) {
   const redis = getRedis();
   try {
-    const code = req.cookies?.oauth_code;
+    const code = req.body?.code || req.query?.code;
     if (!code) {
       return res.status(400).json({ message: "Missing exchange code" });
     }
@@ -176,7 +165,6 @@ export async function googleExchange(req, res) {
     }
 
     await redis.del(`oauth:code:${code}`);
-    res.clearCookie("oauth_code", getRefreshCookieOptions());
 
     const session = JSON.parse(sessionStr);
     return res.json(session);

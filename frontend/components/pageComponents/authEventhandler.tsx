@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { setLogoutHandler } from "@/lib/authBridge";
 import { useAuth } from "../../authContext/authContext";
@@ -8,6 +8,7 @@ import { API_BASE } from "@/lib/api";
 
 export default function AuthEventHandler() {
   const { logout, login } = useAuth();
+  const exchangeInFlight = useRef(false);
 
   useEffect(() => {
     setLogoutHandler(() => {
@@ -18,14 +19,19 @@ export default function AuthEventHandler() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const shouldExchange = params.get("oauth") === "1";
+    const code = params.get("oauth_code");
 
-    if (!shouldExchange) return;
+    if (!code) return;
+    if (exchangeInFlight.current) return;
+
+    exchangeInFlight.current = true;
 
     const exchange = async () => {
       try {
         const res = await fetch(`${API_BASE}/auth/google/exchange`, {
           method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ code }),
           credentials: "include",
         });
 
@@ -43,7 +49,8 @@ export default function AuthEventHandler() {
         console.error(err);
         toast.error("Google login failed. Please try again.");
       } finally {
-        params.delete("oauth");
+        exchangeInFlight.current = false;
+        params.delete("oauth_code");
         const query = params.toString();
         const nextUrl = `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash || ""}`;
         window.history.replaceState({}, "", nextUrl);
