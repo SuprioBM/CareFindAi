@@ -34,13 +34,17 @@ function MobileFeatureStack({ features }: { features: { title: string; icon: str
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
-    const onScroll = () => {
-      const scrollTop = el.scrollTop;
-      const scrollHeight = el.scrollHeight - el.clientHeight;
-      const progress = scrollHeight > 0 ? scrollTop / scrollHeight : 0;
-      const stacked = Math.round(progress * CARD_COUNT);
-      setStackedCount(Math.min(stacked, CARD_COUNT));
-    };
+const onScroll = () => {
+  const scrollTop = el.scrollTop;
+
+  const STEP = CARD_H * 0.45;
+
+  const stacked = Math.floor(scrollTop / STEP);
+
+  setStackedCount(
+    Math.max(0, Math.min(stacked + 1, CARD_COUNT))
+  );
+};
     el.addEventListener('scroll', onScroll, { passive: true });
     return () => el.removeEventListener('scroll', onScroll);
   }, [CARD_COUNT]);
@@ -55,7 +59,7 @@ function MobileFeatureStack({ features }: { features: { title: string; icon: str
         ref={scrollRef}
         className="overflow-y-scroll"
         style={{
-          height: '60vh',              // ← was 50vh, gives enough room for spread
+          height: '40vh',              // ← was 50vh, gives enough room for spread
           scrollbarWidth: 'none',
           msOverflowStyle: 'none',
         }}
