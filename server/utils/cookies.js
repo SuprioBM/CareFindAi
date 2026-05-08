@@ -4,7 +4,7 @@ export function getRefreshCookieOptions() {
   return {
     httpOnly: true,
     secure: true,        
-    sameSite: "lax",    
+    sameSite: "None",    
     path: "/", 
   };
 }
