@@ -36,6 +36,21 @@ app.use(
   }),
 );
 
+
+app.get("/test-cookie", (req, res) => {
+  res.cookie("test", "hello", {
+    httpOnly: true,
+    secure: true,
+    sameSite: "none",
+    path: "/",
+  });
+
+  res.send("cookie set");
+});
+
+app.get("/check-cookie", (req, res) => {
+  res.json(req.cookies);
+});
 /* -------------------- Parsers --------------------------- */
 app.use(cookieParser());
 app.use(express.json({ limit: "1mb" }));
