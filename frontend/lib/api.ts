@@ -49,7 +49,6 @@ export async function apiFetch(endpoint: string, options: RequestInit = {}) {
    refreshPromise = (async () => {
   const sessionId = localStorage.getItem("sessionId"); // 🔥 ALWAYS FRESH READ
 
-  console.log("refresh sessionId:", sessionId);
 
   if (!sessionId) {
     clearAccessToken();

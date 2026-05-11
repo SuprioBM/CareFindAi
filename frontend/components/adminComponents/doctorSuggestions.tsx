@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { apiFetch } from '@/lib/api';
 import ReviewDoctorModal from '@/components/ModalComponent/ReviewModal';
 
@@ -16,8 +16,8 @@ type Request = {
 export default function AdminDoctorSuggestionsPage() {
   const [data, setData] = useState<Request[]>([]);
   const [selected, setSelected] = useState<Request | null>(null);
+  const tableScrollRef = useRef<HTMLDivElement>(null);
 
-  // fetch once
   const fetchData = async () => {
     try {
       const res = await apiFetch('/doctor-join-requests');
@@ -32,7 +32,6 @@ export default function AdminDoctorSuggestionsPage() {
     fetchData();
   }, []);
 
-  // 🔥 INSTANT UPDATE HANDLER
   const handleUpdate = (id: string, newStatus: Request['status']) => {
     setData((prev) =>
       prev.map((item) =>
@@ -43,71 +42,71 @@ export default function AdminDoctorSuggestionsPage() {
 
   return (
     <div className="p-4 sm:p-6">
+      <h1 className="text-2xl font-bold mb-6">Doctor Join Requests</h1>
 
-      <h1 className="text-2xl font-bold mb-6">
-        Doctor Join Requests
-      </h1>
-
-      {/* EMPTY STATE */}
       {data.length === 0 ? (
         <div className="p-10 text-center text-text-muted border border-border rounded-xl">
           No doctor requests found
         </div>
       ) : (
         <div className="bg-card border border-border rounded-xl overflow-hidden">
-          <div className="overflow-x-auto">
+          <div
+            ref={tableScrollRef}
+            className="overflow-x-auto animate-table-reveal"
+            onScroll={(e) => {
+              const el = e.currentTarget;
+              el.classList.toggle('scrolled', el.scrollLeft > 2);
+            }}
+          >
             <table className="w-full text-sm min-w-[720px]">
-            <thead className="bg-section-teal">
-              <tr>
-                <th className="p-4 text-left">Name</th>
-                <th className="p-4 text-left">City</th>
-                <th className="p-4 text-left">Hospital</th>
-                <th className="p-4 text-left">Status</th>
-                <th className="p-4 text-right">Action</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {data.map((d) => (
-                <tr key={d._id} className="border-t border-border">
-
-                  <td className="p-4 font-medium">{d.fullName}</td>
-                  <td className="p-4">{d.city}</td>
-                  <td className="p-4">{d.hospitalOrClinic}</td>
-
-                  <td className="p-4">
-                    <StatusBadge status={d.status} />
-                  </td>
-
-                  <td className="p-4 text-right">
-                    {d.status === 'pending' ? (
-                      <button
-                        onClick={() => setSelected(d)}
-                        className="px-3 py-1 bg-primary text-white rounded"
-                      >
-                        Review
-                      </button>
-                    ) : (
-                      <span className="text-text-muted text-xs">
-                        Locked
-                      </span>
-                    )}
-                  </td>
-
+              <thead className="bg-section-teal">
+                <tr>
+                  <th className="sticky-col relative sticky left-0 z-10 bg-section-teal p-4 text-left">
+                    Name
+                  </th>
+                  <th className="p-4 text-left">City</th>
+                  <th className="p-4 text-left">Hospital</th>
+                  <th className="p-4 text-left">Status</th>
+                  <th className="p-4 text-right">Action</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+
+              <tbody>
+                {data.map((d) => (
+                  <tr key={d._id} className="border-t border-border hover:bg-section-teal/50 transition-colors group">
+                    <td className="sticky-col relative sticky left-0 z-10 bg-card group-hover:bg-section-teal/50 p-4 font-medium">
+                      {d.fullName}
+                    </td>
+                    <td className="p-4">{d.city}</td>
+                    <td className="p-4">{d.hospitalOrClinic}</td>
+                    <td className="p-4">
+                      <StatusBadge status={d.status} />
+                    </td>
+                    <td className="p-4 text-right">
+                      {d.status === 'pending' ? (
+                        <button
+                          onClick={() => setSelected(d)}
+                          className="px-3 py-1 bg-primary text-white rounded"
+                        >
+                          Review
+                        </button>
+                      ) : (
+                        <span className="text-text-muted text-xs">Locked</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
 
-      {/* MODAL */}
       <ReviewDoctorModal
         request={selected}
         onClose={() => setSelected(null)}
         onUpdated={(id: string, status: Request['status']) => {
-          handleUpdate(id, status);   // 🔥 instant UI update
+          handleUpdate(id, status);
         }}
       />
     </div>
@@ -121,9 +120,5 @@ function StatusBadge({ status }: { status: string }) {
     rejected: 'text-red-500',
   };
 
-  return (
-    <span className={`font-medium ${map[status]}`}>
-      {status}
-    </span>
-  );
+  return <span className={`font-medium ${map[status]}`}>{status}</span>;
 }

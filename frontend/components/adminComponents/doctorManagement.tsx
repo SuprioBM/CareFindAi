@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState,useRef } from 'react';
 import { apiFetch } from '@/lib/api';
 import type { Section } from '../../types/types';
 import DoctorFormModal from '../ModalComponent/DoctorFormModal';
@@ -102,6 +102,8 @@ export default function DoctorManagement({ onNavigate }: Props) {
 
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 8;
+  const tableScrollRef = useRef<HTMLDivElement>(null);
+  
 
   async function fetchDoctors() {
     try {
@@ -466,11 +468,19 @@ export default function DoctorManagement({ onNavigate }: Props) {
       </div>
 
       <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
+      <div
+          ref={tableScrollRef}
+          className="overflow-x-auto animate-table-reveal"
+          onScroll={(e) => {
+            const el = e.currentTarget;
+            el.classList.toggle('scrolled', el.scrollLeft > 2);
+          }}
+     >
           <table className="w-full text-left border-collapse min-w-[1200px]">
             <thead>
               <tr className="bg-section-teal border-b border-border">
-                <th className="px-6 py-4 text-xs font-semibold text-text-muted uppercase tracking-wider">
+                <th className="sticky-col relative px-6 py-4 text-xs font-semibold text-text-muted 
+  uppercase tracking-wider sticky left-0 z-10 bg-section-teal">
                   Doctor
                 </th>
                 <th className="px-6 py-4 text-xs font-semibold text-text-muted uppercase tracking-wider">
@@ -513,7 +523,9 @@ export default function DoctorManagement({ onNavigate }: Props) {
                     key={doc._id}
                     className="hover:bg-section-teal/50 transition-colors group"
                   >
-                    <td className="px-6 py-4">
+                    <td className="sticky-col relative px-6 py-4 sticky left-0 z-10 bg-card 
+  group-hover:bg-section-teal"
+                    >
                       <div className="flex items-center gap-3">
                         {doc.profileImage ? (
                           <img
