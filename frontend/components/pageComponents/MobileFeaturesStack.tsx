@@ -59,7 +59,7 @@ const onScroll = () => {
         ref={scrollRef}
         className="overflow-y-scroll"
         style={{
-          height: '40vh',              // ← was 50vh, gives enough room for spread
+          height: '60vh',              // ← was 50vh, gives enough room for spread
           scrollbarWidth: 'none',
           msOverflowStyle: 'none',
         }}

@@ -192,7 +192,7 @@ useEffect(() => {
         {/* ── Features ───────────────────────────────────────────── */}
           <ScrollReveal
         as="section"
-        className="relative py-12 md:py-24 bg-card"  // ← py-12 on mobile, py-24 on md+
+        className="relative py-12 md:py-24 bg-gradient-to-b from-section-teal to-card"  // ← py-12 on mobile, py-24 on md+
         threshold={0.25}
         id="features"
       >
@@ -238,7 +238,7 @@ useEffect(() => {
         </ScrollReveal>
 
         {/* ── How It Works ───────────────────────────────────────── */}
-        <ScrollReveal as="section" className="py-24 bg-gradient-to-b from-section-teal to-card" threshold={0.25} id="how-it-works">
+        <ScrollReveal as="section" className="py-24 bg-card" threshold={0.25} id="how-it-works">
           <div className="max-w-7xl mx-auto px-6">
             <div className="text-center mb-16">
               <h2 className="text-3xl md:text-4xl font-black mb-4">How CareFind Works</h2>
