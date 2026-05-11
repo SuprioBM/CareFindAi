@@ -92,7 +92,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     } catch {}
 
-    sessionStorage.clear();
+    localStorage.clear();
     setUser(null);
     clearAccessToken();
   }, []);
