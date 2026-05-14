@@ -99,5 +99,5 @@ All routes are mounted under `/api/v1`.
 
 ## Related docs
 
-- Root repository docs: `../README.md`
-- Frontend docs: `../frontend/README.md`
+- Root repository docs: `/README.md`
+- Frontend docs: `/frontend/README.md`

@@ -50,8 +50,8 @@ Because the AI modules are imported during backend startup, the AI-related envir
 ## Repo documentation
 
 - Root (full-stack): this document
-- Frontend app: `./frontend/README.md`
-- Backend API: `./server/README.md`
+- Frontend app: `frontend/README.md`
+- Backend API: `server/README.md`
 
 ## Repository layout
 
