@@ -17,7 +17,7 @@ The frontend is a Next.js 16 App Router application for authentication, symptom 
 
 ## Environment variables
 
-Create `/home/runner/work/CareFindAi/CareFindAi/frontend/.env.local`:
+Create `frontend/.env.local`:
 
 ```env
 NEXT_PUBLIC_API_URL=http://localhost:5000/api/v1
@@ -32,7 +32,7 @@ Notes:
 ## Install and run
 
 ```bash
-cd /home/runner/work/CareFindAi/CareFindAi/frontend
+cd frontend
 npm install
 npm run dev
 ```
@@ -62,5 +62,5 @@ frontend/
 
 ## Related docs
 
-- Root repository docs: `/home/runner/work/CareFindAi/CareFindAi/README.md`
-- Backend docs: `/home/runner/work/CareFindAi/CareFindAi/server/README.md`
+- Root repository docs: `../README.md`
+- Backend docs: `../server/README.md`

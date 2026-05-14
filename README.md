@@ -49,9 +49,9 @@ Because the AI modules are imported during backend startup, the AI-related envir
 
 ## Repo documentation
 
-- Root (full-stack): `/home/runner/work/CareFindAi/CareFindAi/README.md`
-- Frontend app: `/home/runner/work/CareFindAi/CareFindAi/frontend/README.md`
-- Backend API: `/home/runner/work/CareFindAi/CareFindAi/server/README.md`
+- Root (full-stack): `./README.md`
+- Frontend app: `./frontend/README.md`
+- Backend API: `./server/README.md`
 
 ## Repository layout
 

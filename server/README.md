@@ -19,7 +19,7 @@ The backend is an Express 5 API that handles authentication, doctor/specializati
 
 ## Environment setup
 
-Create `/home/runner/work/CareFindAi/CareFindAi/server/.env`:
+Create `server/.env`:
 
 ```env
 NODE_ENV=development
@@ -62,7 +62,7 @@ For tests, the `npm test` script reads `.env.test` via `DOTENV_CONFIG_PATH=.env.
 ## Install and run
 
 ```bash
-cd /home/runner/work/CareFindAi/CareFindAi/server
+cd server
 npm install
 npm run dev
 ```
@@ -99,5 +99,5 @@ All routes are mounted under `/api/v1`.
 
 ## Related docs
 
-- Root repository docs: `/home/runner/work/CareFindAi/CareFindAi/README.md`
-- Frontend docs: `/home/runner/work/CareFindAi/CareFindAi/frontend/README.md`
+- Root repository docs: `../README.md`
+- Frontend docs: `../frontend/README.md`
