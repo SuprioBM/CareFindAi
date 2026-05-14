@@ -47,6 +47,12 @@ The symptom analysis flow currently works in four stages:
 
 Because the AI modules are imported during backend startup, the AI-related environment variables are required for the server to boot in the current codebase.
 
+## Repo documentation
+
+- Root (full-stack): `/home/runner/work/CareFindAi/CareFindAi/README.md`
+- Frontend app: `/home/runner/work/CareFindAi/CareFindAi/frontend/README.md`
+- Backend API: `/home/runner/work/CareFindAi/CareFindAi/server/README.md`
+
 ## Repository layout
 
 ```text
