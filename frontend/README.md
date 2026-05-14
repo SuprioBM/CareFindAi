@@ -62,5 +62,5 @@ frontend/
 
 ## Related docs
 
-- Root repository docs: `/README.md`
-- Backend docs: `/server/README.md`
+- Root repository docs: `README.md` (repository root)
+- Backend docs: `server/README.md` (repository root)
