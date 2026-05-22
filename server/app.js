@@ -70,26 +70,5 @@ app.use((err, req, res, next) => {
 });
 
 
-app.get('/keep-alive', async (req, res) => {
-  try {
-    await axios.get(
-      `${process.env.QDRANT_URL}/collections`,
-      {
-        headers: {
-          'api-key': process.env.QDRANT_API_KEY,
-        },
-      }
-    );
 
-    res.json({
-      success: true,
-      message: 'Backend + Qdrant active',
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: error.message,
-    });
-  }
-});
 export default app;

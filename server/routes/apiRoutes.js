@@ -10,6 +10,7 @@ import authRoutes from "./auth.routes.js";
 import aiRoutes from "./ai.routes.js";
 import analyticsRoutes from "./analytics.router.js";
 import triageRoutes from "./triage.routes.js";
+import axios from "axios";
 
 const router = express.Router();
 
@@ -23,5 +24,28 @@ router.use("/doctor-join-requests", doctorJoinRequestRoutes);
 router.use("/ai", aiRoutes);
 router.use("/analytics", analyticsRoutes);
 router.use("/triage", triageRoutes);
+
+router.get('/keep-alive', async (req, res) => {
+  try {
+    await axios.get(
+      `${process.env.QDRANT_URL}/collections`,
+      {
+        headers: {
+          'api-key': process.env.QDRANT_API_KEY,
+        },
+      }
+    );
+
+    res.json({
+      success: true,
+      message: 'Backend + Qdrant active',
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+});
 
 export default router;
