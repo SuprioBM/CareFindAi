@@ -73,9 +73,9 @@ export default function SymptomsPage() {
               Describe your symptoms
             </p>
             <p className="text-text-muted text-base leading-normal">
-              Our AI will analyze your symptoms and recommend the most relevant
-              specialist for your case.
-            </p>
+  Our AI will analyze your symptoms and recommend the most relevant
+  specialist for your case. Dhaka-based service for now.
+</p>
           </div>
         </div>
 
