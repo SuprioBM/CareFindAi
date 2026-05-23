@@ -231,10 +231,10 @@ useEffect(() => {
               </div>
             </div>
                {/* MOBILE STACK */}
+          </div>
     <div className="md:hidden mt-4">
       <MobileFeatureStack features={features} />
     </div>
-          </div>
         </ScrollReveal>
 
         {/* ── How It Works ───────────────────────────────────────── */}

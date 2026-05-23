@@ -1,116 +1,140 @@
 'use client';
-import { useRef, useEffect, useState } from 'react';
 
-const allCards = (features: { title: string; icon: string; desc: string }[]) => [
+import { useRef } from 'react';
+import { motion, useScroll, useTransform } from 'framer-motion';
+
+const allCards = (
+  features: { title: string; icon: string; desc: string }[]
+) => [
   ...features.map((f) => ({
     key: f.title,
-    icon: <span className="material-symbols-outlined text-primary text-3xl">{f.icon}</span>,
+    icon: (
+      <span className="material-symbols-outlined text-primary text-3xl">
+        {f.icon}
+      </span>
+    ),
     title: f.title,
     desc: f.desc,
-    wide: false,
   })),
   {
     key: 'saved-care',
-    icon: <span className="material-symbols-outlined text-primary text-4xl">favorite</span>,
+    icon: (
+      <span className="material-symbols-outlined text-primary text-4xl">
+        favorite
+      </span>
+    ),
     title: 'Saved Care Team',
-    desc: 'Build your personal roster of trusted doctors, easily accessible for future bookings.',
-    wide: false,
+    desc:
+      'Build your personal roster of trusted doctors, easily accessible for future bookings.',
   },
   {
     key: 'explainable-ai',
-    icon: <span className="material-symbols-outlined text-primary text-3xl">info</span>,
+    icon: (
+      <span className="material-symbols-outlined text-primary text-3xl">
+        info
+      </span>
+    ),
     title: 'Explainable AI',
-    desc: 'Understand exactly why certain conditions and doctors are recommended.',
-    wide: false,
+    desc:
+      'Understand exactly why certain conditions and doctors are recommended.',
   },
 ];
 
-function MobileFeatureStack({ features }: { features: { title: string; icon: string; desc: string }[] }) {
-  const cards = allCards(features);
-  const CARD_COUNT = cards.length;
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const [stackedCount, setStackedCount] = useState(0);
+function StackCard({
+  card,
+  index,
+  total,
+  progress,
+}: any) {
+  const targetScale =
+    1 - (total - 1 - index) * 0.02;
 
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-const onScroll = () => {
-  const scrollTop = el.scrollTop;
-
-  const STEP = CARD_H * 0.45;
-
-  const stacked = Math.floor(scrollTop / STEP);
-
-  setStackedCount(
-    Math.max(0, Math.min(stacked + 1, CARD_COUNT))
+  const scale = useTransform(
+    progress,
+    [index / total, 1],
+    [1, targetScale]
   );
-};
-    el.addEventListener('scroll', onScroll, { passive: true });
-    return () => el.removeEventListener('scroll', onScroll);
-  }, [CARD_COUNT]);
 
-  const CARD_H = 180;
-  const GAP = 16;
-  const scrollContentHeight = CARD_COUNT * (CARD_H + GAP) * 1.5;
+  return (
+    <div
+      className="absolute left-0 right-0 sticky"
+      style={{
+        top: `${index * 12}px`,
+        zIndex: index + 10,
+      }}
+    >
+      <motion.div
+        style={{
+          scale,
+          transformOrigin: 'top center',
+        }}
+        className="w-full px-2"
+      >
+        <div className="p-6 rounded-3xl bg-section-teal border border-border shadow-md">
+          <div className="w-12 h-12 bg-card rounded-2xl shadow-sm flex items-center justify-center mb-4">
+            {card.icon}
+          </div>
+
+          <h3 className="text-lg font-bold mb-2">
+            {card.title}
+          </h3>
+
+          <p className="text-text-sub text-sm">
+            {card.desc}
+          </p>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
+export default function MobileFeatureStack({
+  features,
+}: {
+  features: {
+    title: string;
+    icon: string;
+    desc: string;
+  }[];
+}) {
+  const cards = allCards(features);
+
+  const ref = useRef(null);
+
+  const { scrollYProgress } = useScroll({
+    container: ref,
+  });
+
+  const CARD_H = 250;
 
   return (
     <div className="md:hidden max-w-md mx-auto">
       <div
-        ref={scrollRef}
+        ref={ref}
         className="overflow-y-scroll"
         style={{
-          height: '60vh',              // ← was 50vh, gives enough room for spread
+          height: '60vh',
           scrollbarWidth: 'none',
           msOverflowStyle: 'none',
         }}
       >
-        <div style={{ height: scrollContentHeight }} className="relative">
-          <div
-            className="sticky top-0 flex flex-col items-center justify-start pt-4"
-            style={{ height: '60vh' }} // ← match scroll container height
-          >
-            {cards.map((card, i) => {
-              const isStacked = i < stackedCount;
-
-              // Stacked: always offset DOWNWARD from top-0 by i * peek
-              // This anchors card-0 at top:0 forever — nothing goes above it
-              const stackedTop = i * 12;
-              const naturalTop = i * (CARD_H + GAP);
-              const top = isStacked ? stackedTop : naturalTop;
-
-              const zIndex =  10 + i ;
-
-              // ✅ depth can't be negative — no scale > 1 or NaN
-              const depth = isStacked ? Math.max(0, stackedCount - 1 - i) : 0;
-              const scale = Math.max(0.93, 1 - depth * 0.02);
-
-              return (
-                <div
-                  key={card.key}
-                  className="absolute w-full px-2"
-                  style={{
-                    top,
-                    zIndex,
-                    transform: `scale(${scale})`,
-                    transition: 'top 0.35s cubic-bezier(0.4,0,0.2,1), transform 0.35s cubic-bezier(0.4,0,0.2,1)',
-                    transformOrigin: 'top center',
-                  }}
-                >
-                  <div className="p-6 rounded-3xl bg-section-teal border border-border shadow-md">
-                    <div className="w-12 h-12 bg-card rounded-2xl shadow-sm flex items-center justify-center mb-4">
-                      {card.icon}
-                    </div>
-                    <h3 className="text-lg font-bold mb-2">{card.title}</h3>
-                    <p className="text-text-sub text-sm">{card.desc}</p>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+        <div
+          className="relative"
+          style={{
+            height: cards.length * CARD_H,
+          }}
+        >
+          {cards.map((card, i) => (
+            <StackCard
+              key={card.key}
+              card={card}
+              index={i}
+              total={cards.length}
+              progress={scrollYProgress}
+            />
+          ))}
         </div>
       </div>
     </div>
   );
 }
-
-export default MobileFeatureStack;
