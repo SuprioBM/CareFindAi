@@ -24,8 +24,8 @@ export const metadata: Metadata = {
   applicationName: "CareFind",
   manifest: "/manifest.webmanifest",
   icons: {
-    icon: "/favicon.ico",
-    apple: "/icons/icon-192.svg",
+    icon: ["/favicon.ico", "/favicon-32x32.png", "/favicon-16x16.png"],
+    apple: "/apple-touch-icon.png",
   },
   openGraph: {
     title: "CareFind — Smarter Healthcare",
