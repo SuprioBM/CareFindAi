@@ -1,0 +1,5 @@
+Contact: mailto:security@carefind.example
+Preferred-Languages: en
+Expires: 2027-05-26T00:00:00.000Z
+Canonical: /.well-known/security.txt
+Policy: https://carefind.vercel.app/security

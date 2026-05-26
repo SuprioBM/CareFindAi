@@ -12,10 +12,38 @@ const inter = Inter({
   variable: "--font-inter",
 });
 
+const siteUrl =
+  process.env.NEXT_PUBLIC_SITE_URL ??
+  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
+
 export const metadata: Metadata = {
   title: "CareFind — Smarter Healthcare",
   description:
     "AI-powered symptom analysis and intelligent doctor matching. Find the right specialist near you — instantly.",
+  metadataBase: new URL(siteUrl),
+  applicationName: "CareFind",
+  manifest: "/manifest.webmanifest",
+  icons: {
+    icon: "/favicon.ico",
+    apple: "/icons/icon-192.svg",
+  },
+  openGraph: {
+    title: "CareFind — Smarter Healthcare",
+    description:
+      "AI-powered symptom analysis and intelligent doctor matching. Find the right specialist near you — instantly.",
+    url: "/",
+    siteName: "CareFind",
+    type: "website",
+    locale: "en_US",
+    images: ["/og-image.png"],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "CareFind — Smarter Healthcare",
+    description:
+      "AI-powered symptom analysis and intelligent doctor matching. Find the right specialist near you — instantly.",
+    images: ["/og-image.png"],
+  },
 };
 
 export default function RootLayout({

@@ -2,57 +2,96 @@
 
 CareFind is a full-stack healthcare discovery application that helps users describe symptoms, receive an AI-assisted specialist recommendation, and move toward finding relevant doctors. The repository is split into a Next.js frontend and an Express API backed by MongoDB, Redis, and a retrieval-augmented AI pipeline.
 
-## What the project does
+## Project overview
 
-- Authenticates users with email/password, OTP-based email verification, password reset, and Google OAuth.
-- Maintains short-lived access tokens plus Redis-backed refresh sessions.
-- Accepts symptom descriptions and runs an AI analysis flow to recommend a specialist and urgency level.
-- Stores healthcare-related data such as doctors, specializations, bookmarks, saved locations, and doctor join requests.
-- Uses a medical knowledge base and vector search to ground AI responses before the final recommendation is produced.
+CareFind focuses on:
 
-## Architecture
+- Capturing symptom descriptions and producing specialist recommendations.
+- Matching users to doctors and specializations based on location and availability.
+- Supporting secure authentication with OTP and OAuth flows.
+- Grounding AI responses using a medical knowledge base and vector search.
+
+## Features
+
+- Email/password auth with OTP verification and password reset.
+- Google OAuth sign-in and session management.
+- AI-driven symptom analysis with urgency scoring.
+- Doctor discovery, bookmarking, and saved locations.
+- Admin tooling for doctor onboarding and specialization data.
+
+## Tech stack
 
 ### Frontend
 
-- Framework: Next.js 16 with the App Router
-- Language: TypeScript
-- UI: React 19, Tailwind CSS 4, shadcn-style UI components
-- Main responsibilities:
-  - Login and registration flows
-  - Session restoration and token refresh
-  - Symptom analysis screen
-  - Calling the backend API through `NEXT_PUBLIC_API_URL`
+- Next.js 16 (App Router), React 19, TypeScript
+- Tailwind CSS 4, shadcn-style UI components
+- Next Themes, Framer Motion
 
 ### Backend
 
-- Runtime: Node.js 22+
-- Framework: Express 5
-- Database: MongoDB with Mongoose
-- Cache/session store: Redis
-- Main responsibilities:
-  - Authentication and session management
-  - Doctor and specialization APIs
-  - AI symptom analysis orchestration
-  - Email delivery for verification and password reset
-  - OAuth callback handling
+- Node.js 22+, Express 5 (ESM)
+- MongoDB + Mongoose
+- Redis for sessions and rate limiting
+- Qdrant + Jina embeddings for retrieval
 
-### AI pipeline
+## Local setup
 
-The symptom analysis flow currently works in four stages:
+1. Install dependencies:
+   - `cd frontend && npm install`
+   - `cd server && npm install`
+2. Create environment files:
+   - `frontend/.env.example` -> `frontend/.env.local`
+   - `server/.env.example` -> `server/.env`
+3. Start the apps in two terminals:
+   - Frontend: `npm run dev`
+   - Backend: `npm run dev`
 
-1. Input validation checks that the request is well formed.
-2. A gatekeeper model decides whether the prompt is health-related and cleans the query.
-3. Relevant medical context is retrieved from Qdrant using Jina embeddings.
-4. A main model generates a specialist recommendation, explanation, urgency, and warning message.
+Optional Docker setup:
 
-Because the AI modules are imported during backend startup, the AI-related environment variables are required for the server to boot in the current codebase.
+```bash
+docker compose up --build
+```
 
-## Repository layout
+## Environment variables
+
+See the sample files for the full list:
+
+- `frontend/.env.example`
+- `server/.env.example`
+
+## Scripts
+
+### Frontend
+
+- `npm run dev` - start Next.js dev server
+- `npm run build` - build production bundle
+- `npm run start` - run production server
+- `npm run lint` - run ESLint
+
+### Backend
+
+- `npm run dev` - start API server with nodemon
+- `npm run test` - run Jest test suite
+- `npm run rag:parse-medlineplus` - parse medical topic data
+- `npm run rag:build-seeds` - build knowledge base seed data
+- `npm run rag:upload-qdrant` - embed and upload to Qdrant
+- `npm run rag:run` - query Qdrant directly
+- `npm run seed:specializations` - seed specialization data
+- `npm run seed:doctors` - seed doctor data
+
+## Deployment
+
+- Frontend uses Next.js standalone output (`output: "standalone"`).
+- Backend expects `NODE_ENV=production` and a reachable MongoDB + Redis.
+- `docker-compose.yml` provides a multi-container reference for local or containerized deployments.
+- Remember to set `NEXT_PUBLIC_SITE_URL` and `BACKEND_URL` in production.
+
+## Folder structure
 
 ```text
 .
 |-- frontend/              # Next.js application
-|   |-- app/               # App Router pages
+|   |-- app/               # App Router pages and routes
 |   |-- authContext/       # Client auth/session state
 |   |-- components/        # Forms and UI primitives
 |   |-- lib/               # API client and auth helpers
@@ -63,141 +102,27 @@ Because the AI modules are imported during backend startup, the AI-related envir
 |   |-- middleware/        # Auth, validation, security, email, sessions
 |   |-- models/            # Mongoose models
 |   |-- modules/ai/        # AI pipeline and retrieval logic
-|   |-- Rag/               # Knowledge base parsing and upload scripts
+|   |-- Rag/               # Knowledge base scripts
 |   |-- routes/            # API route modules
 |   `-- tests/             # Jest and Supertest tests
 `-- docker-compose.yml     # Local multi-container setup
 ```
 
-## Key API areas
+## Screenshots
 
-The backend is mounted at `http://localhost:5000/api/v1` by default.
+- Landing page: `docs/screenshots/landing.png`
+- Symptom analysis: `docs/screenshots/analysis.png`
+- Doctor discovery: `docs/screenshots/discovery.png`
 
-- `/auth`
-  - register, login, logout, refresh, me
-  - verify email, resend verification, forgot password, reset password
-  - Google OAuth start and callback
-  - session listing and revocation
-- `/ai`
-  - health check
-  - symptom analysis
-- `/doctors`
-  - CRUD endpoints
-  - nearby doctor search
-- `/specializations`
-- `/bookmarks`
-- `/saved-locations`
-- `/symptom-searches`
-- `/doctor-join-requests`
+## Credits
 
-## Prerequisites
+- Medical topic data from MedlinePlus
+- Vector search powered by Qdrant
+- Embeddings from Jina AI
 
-- Node.js 22 or newer
-- npm
-- MongoDB
-- Redis
-- Docker and Docker Compose, if you want to run the full stack in containers
-- Third-party credentials for the enabled integrations:
-  - OpenRouter
-  - Qdrant
-  - Jina AI embeddings
-  - Gmail app password for transactional email
-  - Google OAuth
-  - Arcjet
+## License
 
-## Environment variables
-
-There are no committed `.env` files in the repository, so you need to create them locally.
-
-### Frontend: `frontend/.env.local`
-
-```env
-NEXT_PUBLIC_API_URL=http://localhost:5000/api/v1
-```
-
-### Backend: `server/.env`
-
-Use the following as a starting point:
-
-```env
-NODE_ENV=development
-PORT=5000
-CLIENT_ORIGIN=http://localhost:3000
-
-MONGO_URI=mongodb://127.0.0.1:27017/carefind
-
-REDIS_HOST=127.0.0.1
-REDIS_PORT=6379
-REDIS_USERNAME=
-REDIS_PASSWORD=
-
-JWT_SECRET=replace-with-a-strong-secret
-OTP_EXP_MIN=10
-APP_NAME=CareFind
-
-GMAIL_USER=your-email@gmail.com
-GMAIL_APP_PASS=your-gmail-app-password
-
-GOOGLE_CLIENT_ID=your-google-client-id
-GOOGLE_CLIENT_SECRET=your-google-client-secret
-GOOGLE_REDIRECT_URI=http://localhost:5000/api/v1/auth/google/callback
-
-ARCJET_KEY=your-arcjet-key
-ARCJET_ENV=development
-
-OPENROUTER_API_KEY=your-openrouter-key
-OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
-OPENROUTER_GATEKEEPER_MODEL=qwen/qwen3-4b:free
-OPENROUTER_MAIN_MODEL=openrouter/free
-
-QDRANT_URL=https://your-qdrant-instance
-QDRANT_API_KEY=your-qdrant-api-key
-QDRANT_COLLECTION=carefind_medical_kb
-JINA_API_KEY=your-jina-api-key
-
-HF_TOKEN=
-```
-
-### Backend: `server/.env.docker`
-
-The Docker Compose file expects a separate Docker env file for the backend. A typical local version looks like this:
-
-```env
-NODE_ENV=development
-PORT=5000
-CLIENT_ORIGIN=http://localhost:3000
-
-MONGO_URI=mongodb://mongo:27017/carefind
-
-REDIS_HOST=redis
-REDIS_PORT=6379
-REDIS_USERNAME=
-REDIS_PASSWORD=
-
-JWT_SECRET=replace-with-a-strong-secret
-OTP_EXP_MIN=10
-APP_NAME=CareFind
-
-GMAIL_USER=your-email@gmail.com
-GMAIL_APP_PASS=your-gmail-app-password
-
-GOOGLE_CLIENT_ID=your-google-client-id
-GOOGLE_CLIENT_SECRET=your-google-client-secret
-GOOGLE_REDIRECT_URI=http://localhost:5000/api/v1/auth/google/callback
-
-ARCJET_KEY=your-arcjet-key
-ARCJET_ENV=development
-
-OPENROUTER_API_KEY=your-openrouter-key
-OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
-OPENROUTER_GATEKEEPER_MODEL=qwen/qwen3-4b:free
-OPENROUTER_MAIN_MODEL=openrouter/free
-
-QDRANT_URL=https://your-qdrant-instance
-QDRANT_API_KEY=your-qdrant-api-key
-QDRANT_COLLECTION=carefind_medical_kb
-JINA_API_KEY=your-jina-api-key
-
+This project is licensed under the MIT License. See [LICENSE](LICENSE).
 HF_TOKEN=
 ```
 
