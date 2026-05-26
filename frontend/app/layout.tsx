@@ -31,7 +31,7 @@ export const metadata: Metadata = {
     title: "CareFind — Smarter Healthcare",
     description:
       "AI-powered symptom analysis and intelligent doctor matching. Find the right specialist near you — instantly.",
-    url: "/",
+    url: "https://carefind.vercel.app",
     siteName: "CareFind",
     type: "website",
     locale: "en_US",
