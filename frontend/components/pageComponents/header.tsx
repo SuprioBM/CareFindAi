@@ -8,7 +8,6 @@ import { usePathname } from "next/navigation";
 import MobileDrawer from "./MobileDrawer";
 
 const navLinks = [
-  { name: "Home", href: "/" },
   { name: "Features", href: "/#features" },
   { name: "How It Works", href: "/#how-it-works" },
 ];
@@ -30,14 +29,13 @@ export default function Header() {
       <div className="max-w-7xl mx-auto flex items-center justify-between">
 
         {/* LEFT — Logo */}
-        <div className="flex items-center gap-3">
-          {/* Mobile hamburger — visible only on small screens */}
- 
+        <Link href="/" className="flex items-center gap-3">
           <span className="material-symbols-outlined text-primary text-3xl">
             medical_services
           </span>
           <h2 className="text-xl font-bold tracking-tight">CareFind</h2>
-        </div>
+        </Link>
+       
 
         {/* CENTER — Navigation */}
         <nav className="hidden md:flex items-center gap-8">

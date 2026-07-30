@@ -1,111 +1,87 @@
-import { getRedis } from "../config/redis.js";
+import SymptomSession from "../models/session.model.js";
 
 /**
- * SESSION SERVICE (Single responsibility: triage session persistence)
- * - Handles Redis read/write/delete
- * - TTL management
- * - Safe key normalization
+ * SESSION SERVICE (Persists triage sessions in MongoDB)
  */
-
-const SESSION_PREFIX = "triage:session:";
-const SESSION_TTL_SECONDS = 60 * 30; // 30 minutes
-
 export class SessionService {
-  get redis() {
-    return getRedis();
-  }
-
   /**
-   * Normalize session ID (prevents double prefix bugs)
-   */
-  normalizeSessionId(sessionId) {
-    if (!sessionId) return sessionId;
-    return sessionId.replace(SESSION_PREFIX, "");
-  }
-
-  /**
-   * Build Redis key safely
-   */
-  buildKey(sessionId) {
-    const cleanId = this.normalizeSessionId(sessionId);
-    return `${SESSION_PREFIX}${cleanId}`;
-  }
-
-  /**
-   * Get session from Redis
+   * Get session from MongoDB
    */
   async getSession(sessionId) {
-    const key = this.buildKey(sessionId);
-
-    const data = await this.redis.get(key);
-
-    if (!data) return null;
-
-    return JSON.parse(data);
+    if (!sessionId) return null;
+    return await SymptomSession.findOne({ sessionId });
   }
 
   /**
    * Create new session structure
    */
-  createNewSession() {
-    return {
-      state: {
-        detectedSymptoms: [],
-        collectedParameters: {},
-        rawParameters: {},
-        domains: {},
-        domainInsights: {},
-        selectedDomains: [],
-
-        // ✅ FIX: must be array
-        missingParameters: [],
-
-        redFlagsTriggered: [],
-        currentDomain: null,
-        nextQuestion: null,
-        askedParameters: {},
-        shouldStop: false,
-        stage: "initial"
+  createNewSession(userId, sessionId) {
+    return new SymptomSession({
+      user: userId,
+      sessionId: sessionId,
+      status: "ACTIVE",
+      conversationHistory: [],
+      clinicalState: {
+        sessionId: sessionId,
+        demographics: {
+          age: null,
+          gender: null,
+        },
+        symptoms: [],
+        symptomTimeline: {},
+        severity: {},
+        riskFactors: [],
+        medications: [],
+        medicalHistory: [],
+        redFlags: [],
+        answeredQuestions: [],
+        missingQuestions: [],
+        urgencyLevel: null,
+        recommendedSpecialty: null,
+        confidenceScore: null,
       },
-      history: []
-    };
+      questionHistory: [],
+      finalRecommendation: null,
+    });
   }
 
   /**
    * Reset session while preserving sessionId key
    */
-  async resetSession(sessionId) {
-    const freshSession = this.createNewSession();
+  async resetSession(sessionId, userId) {
+    await this.deleteSession(sessionId);
+    const freshSession = this.createNewSession(userId, sessionId);
     await this.saveSession(sessionId, freshSession);
     return freshSession;
   }
 
   /**
-   * Save session with TTL
+   * Save session to MongoDB
    */
   async saveSession(sessionId, sessionData) {
-    const key = this.buildKey(sessionId);
-
-    await this.redis.set(key, JSON.stringify(sessionData), {
-      EX: SESSION_TTL_SECONDS
-    });
+    if (sessionData && typeof sessionData.save === "function") {
+      await sessionData.save();
+    } else {
+      await SymptomSession.findOneAndUpdate(
+        { sessionId },
+        { $set: sessionData },
+        { upsert: true, new: true }
+      );
+    }
   }
 
   /**
-   * Extend session TTL
+   * Refresh session (no-op since MongoDB documents don't require manual expire refresh)
    */
   async refreshSession(sessionId) {
-    const key = this.buildKey(sessionId);
-
-    await this.redis.expire(key, SESSION_TTL_SECONDS);
+    // No-op for Mongoose storage
   }
 
   /**
    * Delete session
    */
   async deleteSession(sessionId) {
-    const key = this.buildKey(sessionId);
-
-    await this.redis.del(key);
+    if (!sessionId) return;
+    await SymptomSession.deleteOne({ sessionId });
   }
 }

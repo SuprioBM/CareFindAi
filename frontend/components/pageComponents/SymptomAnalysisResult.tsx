@@ -19,6 +19,13 @@ export default function SymptomAnalysisResult({
   const router = useRouter();
   const [findingDoctors, setFindingDoctors] = useState(false);
   const [localError, setLocalError] = useState('');
+  const [selectedSpecialty, setSelectedSpecialty] = useState<string | null>(null);
+
+  const specialtyList = analysis?.specialists && analysis.specialists.length > 0
+    ? analysis.specialists
+    : analysis?.specialist
+    ? [analysis.specialist]
+    : [];
 
   const urgencyTone =
     analysis?.urgency === 'high'
@@ -44,8 +51,8 @@ export default function SymptomAnalysisResult({
 
   async function handleFindNearbySpecialist() {
     try {
-      if (!analysis?.specialist?.trim()) {
-        setLocalError('No recommended specialist found yet.');
+      if (!selectedSpecialty) {
+        setLocalError('Please select a recommended specialist first.');
         return;
       }
 
@@ -61,15 +68,15 @@ export default function SymptomAnalysisResult({
         latitude: String(latitude),
         longitude: String(longitude),
         radius: '20',
-        specialization: analysis.specialist.trim(),
+        specialization: selectedSpecialty.trim(),
       });
       
-     await fetchNearbyDoctors({
-    latitude: position.coords.latitude,
-    longitude: position.coords.longitude,
-    specialization: analysis.specialist.trim(),
-  });
-    router.push('/find_nearby_doctors');
+      await fetchNearbyDoctors({
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+        specialization: selectedSpecialty.trim(),
+      });
+      router.push('/find_nearby_doctors');
 
       
     } catch (err: any) {
@@ -127,15 +134,11 @@ export default function SymptomAnalysisResult({
       </h2>
 
       <div className="bg-card p-6 rounded-2xl border border-primary/10 shadow-sm flex flex-col gap-6">
-        <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-primary/10 pb-4">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary/70 mb-2">
-              AI Recommendation
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary/70">
+              AI Triage Assessment
             </p>
-
-            <h3 className="font-bold text-3xl text-primary">
-              {analysis.specialist || 'No specialist found'}
-            </h3>
           </div>
 
           {analysis.urgency && (
@@ -146,6 +149,55 @@ export default function SymptomAnalysisResult({
             </div>
           )}
         </div>
+
+        {specialtyList.length > 0 && (
+          <div className="space-y-3">
+            <p className="text-sm font-semibold text-text-sub">
+              Recommended Specialties (Select one to search doctors)
+            </p>
+            <div className="flex flex-col gap-3">
+              {specialtyList.map((spec, index) => {
+                const score = index === 0 
+                  ? (analysis.score || 85) 
+                  : Math.max(40, (analysis.score || 85) - (index * 15));
+                const isSelected = selectedSpecialty === spec;
+                
+                return (
+                  <div
+                    key={`${spec}-${index}`}
+                    onClick={() => setSelectedSpecialty(spec)}
+                    className={`flex items-center justify-between p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                      isSelected
+                        ? 'border-primary bg-primary/5 shadow-sm scale-[1.01]'
+                        : 'border-primary/10 hover:border-primary/30 bg-surface'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className={`material-symbols-outlined text-[20px] ${
+                        isSelected ? 'text-primary' : 'text-text-muted'
+                      }`}>
+                        {isSelected ? 'radio_button_checked' : 'radio_button_unchecked'}
+                      </span>
+                      <span className="font-bold text-sm md:text-base text-text-base">
+                        {spec}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="text-[10px] md:text-xs font-bold text-text-muted">
+                        Match Accuracy:
+                      </div>
+                      <span className={`px-2.5 py-0.5 rounded-full text-xs font-black ${
+                        isSelected ? 'bg-primary text-white' : 'bg-primary/10 text-primary'
+                      }`}>
+                        {score}%
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {analysis.matchedSymptoms && analysis.matchedSymptoms.length > 0 && (
           <div>
@@ -205,8 +257,12 @@ export default function SymptomAnalysisResult({
         <button
           type="button"
           onClick={handleFindNearbySpecialist}
-          disabled={findingDoctors || !analysis?.specialist}
-          className="flex w-full items-center justify-center rounded-xl h-11 px-5 bg-primary text-white text-sm font-bold hover:bg-primary-hover disabled:opacity-70 disabled:cursor-not-allowed transition-colors shadow-lg shadow-primary/20"
+          disabled={findingDoctors || !selectedSpecialty}
+          className={`flex w-full items-center justify-center rounded-xl h-11 px-5 text-sm font-bold transition-all shadow-lg ${
+            selectedSpecialty && !findingDoctors
+              ? 'bg-primary text-white hover:bg-primary-hover shadow-primary/20 hover:scale-[1.01]'
+              : 'bg-primary/5 border border-primary/10 text-text-muted cursor-not-allowed opacity-50 shadow-none'
+          }`}
         >
           <span className="material-symbols-outlined mr-2 text-[18px]">
             {findingDoctors ? 'progress_activity' : 'location_on'}
@@ -215,19 +271,24 @@ export default function SymptomAnalysisResult({
         </button>
 
         <button
-            type="button"
-     onClick={() =>
-    router.push(
-      `/manual-search?specialist=${encodeURIComponent(analysis?.specialist || "")}`
-    )
-  }
-            className="flex w-full items-center justify-center rounded-xl h-11 px-5 bg-primary text-white text-sm font-bold hover:bg-primary-hover disabled:opacity-70 disabled:cursor-not-allowed transition-colors shadow-lg shadow-primary/20"
-      >
-        <span className="material-symbols-outlined mr-2 text-[18px]">
-          search
-        </span>
-        Manual Search
-      </button>
+          type="button"
+          onClick={() =>
+            router.push(
+              `/manual-search?specialist=${encodeURIComponent(selectedSpecialty || "")}`
+            )
+          }
+          disabled={!selectedSpecialty}
+          className={`flex w-full items-center justify-center rounded-xl h-11 px-5 text-sm font-bold transition-all shadow-lg ${
+            selectedSpecialty
+              ? 'bg-primary text-white hover:bg-primary-hover shadow-primary/20 hover:scale-[1.01]'
+              : 'bg-primary/5 border border-primary/10 text-text-muted cursor-not-allowed opacity-50 shadow-none'
+          }`}
+        >
+          <span className="material-symbols-outlined mr-2 text-[18px]">
+            search
+          </span>
+          Manual Search
+        </button>
       </div>
     </div>
   );

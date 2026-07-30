@@ -59,11 +59,9 @@ export const deleteSession = async (req, res) => {
 export const resetSession = async (req, res) => {
   try {
     const { sessionId } = req.params;
+    const userId = req.user.id; // Protected route
 
-    const freshSession = sessionService.createNewSession();
-
-    await sessionService.saveSession(sessionId, freshSession);
-    await sessionService.refreshSession(sessionId);
+    const freshSession = await sessionService.resetSession(sessionId, userId);
 
     return res.json({
       success: true,

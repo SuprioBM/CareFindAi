@@ -51,6 +51,8 @@ type SavedLocation = {
 
 type AnalysisResponse = {
   specialist?: string;
+  specialists?: string[];
+  score?: number;
   explanation?: string;
   urgency?: 'low' | 'medium' | 'high' | 'emergency' | string;
   warningMessage?: string;

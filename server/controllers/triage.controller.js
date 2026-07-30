@@ -1,413 +1,314 @@
 import { randomUUID } from "crypto";
 import { SessionService } from "../services/session.service.js";
-import { StateMachineService } from "../services/stateMachine.service.js";
-import { ScoringEngine } from "../engine/scoringEngine.js";
-import { AIService } from "../services/ai.service.js";
-import { LLMService } from "../services/llm.service.js";
-import { DOMAIN_CONFIG } from "../config/domain.config.js";
-import { RuleEngine } from "../engine/ruleEngine.js";
-import { EarlyEmergencyService } from "../services/earlyEmergency.service.js";
-import { DispositionEngine } from "../engine/dispositionEngine.js";
-import { SpecialtyMapper } from "../middleware/SpecialtyMapper.js";
-import { SpecialityService } from "../services/speciality.service.js";
+import { ExtractionLayer } from "../services/extractionLayer.service.js";
+import { EmergencyLayer } from "../services/emergencyLayer.service.js";
+import { MissingInfoEngine } from "../services/missingInfoEngine.service.js";
+import { PriorityEngine } from "../services/priorityEngine.service.js";
+import { QuestionGenerator } from "../services/questionGenerator.service.js";
+import { DispositionEngine } from "../services/dispositionEngine.service.js";
+import SymptomSearch from "../models/symptomSearch.model.js";
+import { findOrCreateSpecialization } from "../utils/specializationFinder.js";
 
-const aiService = new AIService();
 const sessionService = new SessionService();
-const llmService = new LLMService();
-const earlyEmergencyService = new EarlyEmergencyService();
-const specialityService = new SpecialityService();
+const extractionLayer = new ExtractionLayer();
+const emergencyLayer = new EmergencyLayer();
+const missingInfoEngine = new MissingInfoEngine();
+const priorityEngine = new PriorityEngine();
+const questionGenerator = new QuestionGenerator();
+const dispositionEngine = new DispositionEngine();
 
-function parseBinaryAnswer(message = "") {
-  const normalized = String(message).trim().toLowerCase();
-  if (["yes", "y", "true", "1"].includes(normalized)) return true;
-  if (["no", "n", "false", "0"].includes(normalized)) return false;
-  return null;
-}
-
-function buildSpecialties(ruleResult, mappedSpecialties = []) {
-  const rules = ruleResult?.triggeredRules || [];
-  const hasStrokeRule = rules.some(
-    (rule) => rule?.rule === "STROKE_DECLARATION" || rule?.rule === "STROKE_PATTERN"
-  );
-
-  if (hasStrokeRule) {
-    return ["Neurology", "Neurosurgery", "Emergency Medicine", "General Physician"];
-  }
-
-  return mappedSpecialties;
-}
-
-function mergeForRuleEvaluation(currentState = {}, extracted = {}) {
-  const mergedSymptoms = new Map();
-
-  const addSymptom = (symptom) => {
-    if (!symptom) return;
-
-    const name = typeof symptom === "string" ? symptom : symptom.name;
-    if (!name) return;
-
-    const key = String(name).toLowerCase().trim();
-    const confidence =
-      typeof symptom === "object" && typeof symptom.confidence === "number"
-        ? symptom.confidence
-        : 0.5;
-
-    const prev = mergedSymptoms.get(key);
-    if (!prev || confidence > prev.confidence) {
-      mergedSymptoms.set(key, { name: key, confidence });
-    }
-  };
-
-  (currentState.detectedSymptoms || []).forEach(addSymptom);
-  (extracted.detectedSymptoms || []).forEach(addSymptom);
-
-  const rawParameters = { ...(currentState.rawParameters || {}) };
-  const collectedParameters = { ...(currentState.collectedParameters || {}) };
-
-  for (const [key, value] of Object.entries(extracted.extractedData || {})) {
-    if (value && typeof value === "object" && "value" in value) {
-      rawParameters[key] = {
-        value: value.value,
-        confidence: typeof value.confidence === "number" ? value.confidence : 0.5
-      };
-      collectedParameters[key] = value.value;
-    } else {
-      collectedParameters[key] = value;
-    }
-  }
-
-  return {
-    ...currentState,
-    detectedSymptoms: Array.from(mergedSymptoms.values()),
-    rawParameters,
-    collectedParameters
-  };
-}
-
-function shapeFinalResponse({ disposition, domainScores, specialties }) {
-  return {
-    triage_level: disposition.triage_level,
-    confidence: disposition.confidence,
-    domains: domainScores,
-    reasons: disposition.reasons,
-    next_step: disposition.next_step,
-    specialties
-  };
-}
-
-function shapeEmergencyResponse(emergency) {
-  return {
-    triage_level: "EMERGENCY",
-    confidence: 1,
-    domains: {},
-    reasons: [emergency.reason || emergency.message || "Emergency pattern detected"],
-    next_step: emergency.message || "Seek emergency medical care immediately",
-    specialties: ["Emergency Medicine", "General Physician"]
-  };
-}
+// Turn threshold to avoid excessive questioning
+const MAX_QUESTIONS = 5;
 
 /**
- * MAIN TRIAGE CONTROLLER
+ * Helper to parse yes/no/binary answers
  */
-export const handleTriageMessage = async (req, res) => {
-  try {
-    const { sessionId, message } = req.body;
-
-    if (!sessionId || !message) {
-      return res.status(400).json({
-        triage_level: "LOW",
-        confidence: 0,
-        domains: {},
-        reasons: ["sessionId and message are required"],
-        next_step: "Provide valid sessionId and message",
-        specialties: ["General Physician"]
-      });
-    }
-
-    // 1. SESSION
-    const sessionData = await sessionService.getSession(sessionId);
-
-    if (!sessionData) {
-      return res.status(404).json({
-        triage_level: "LOW",
-        confidence: 0,
-        domains: {},
-        reasons: ["Session not found. Start a new triage session"],
-        next_step: "Call /api/v1/triage/start",
-        specialties: ["General Physician"]
-      });
-    }
-
-    // 🚨 EARLY EMERGENCY CHECK
-    const emergency = earlyEmergencyService.check(message);
-
-    if (emergency) {
-      return res.json(shapeEmergencyResponse(emergency));
-    }
-
-    // 2. LLM EXTRACTION
-    let extracted = null;
-
-    const pendingQuestionKey = sessionData.state?.nextQuestion?.key;
-    const binaryAnswer = parseBinaryAnswer(message);
-
-    if (pendingQuestionKey && binaryAnswer !== null) {
-      extracted = {
-        detectedSymptoms: [],
-        extractedData: {
-          [pendingQuestionKey]: {
-            value: binaryAnswer,
-            confidence: 1
-          }
-        }
-      };
-    } else {
-      extracted = await llmService.parse(message, sessionData.state);
-    }
-
-    // 3. RULE ENGINE (DETECTION ONLY, USES LATEST EXTRACTED+STATE)
-    const stateForRules = mergeForRuleEvaluation(sessionData.state, extracted);
-    const ruleEngine = new RuleEngine(stateForRules);
-    const ruleResult = ruleEngine.evaluate();
-
-    // 4. STATE MACHINE UPDATE
-    const stateMachine = new StateMachineService(sessionData);
-    const updatedState = stateMachine.updateState(extracted, ruleResult);
-
-    // 5. SCORING ENGINE (SIGNAL GENERATION ONLY)
-    const scoringEngine = new ScoringEngine(updatedState);
-    const scoreResult = scoringEngine.calculate();
-
-    // 6. DISPOSITION ENGINE (FINAL BRAIN)
-    const dispositionEngine = new DispositionEngine({
-      domainScores: scoreResult.domainScores,
-      ruleResult,
-      collectedParameters: updatedState.collectedParameters,
-      symptoms: updatedState.detectedSymptoms,
-      domainInsights: updatedState.domainInsights
-    });
-
-    const disposition = dispositionEngine.evaluate();
-
-    // 7. SPECIALTY MAPPER (SEPARATE LAYER)
-    const specialtyMapper = new SpecialtyMapper();
-
-    const mappedSpecialties = specialtyMapper.map(disposition.top_domains);
-    const specialties = buildSpecialties(ruleResult, mappedSpecialties);
-
-    // 8. NEXT QUESTION LOGIC
-    const nextTarget = updatedState.shouldStop
-      ? null
-      : stateMachine.getNextQuestionTarget();
-
-    let nextQuestion = null;
-
-    const targetDomain = nextTarget?.domain || updatedState.currentDomain;
-
-    if (nextTarget?.key && targetDomain) {
-      const paramConfig =
-        DOMAIN_CONFIG[targetDomain]?.parameters?.[
-          nextTarget.key
-        ];
-
-      if (paramConfig) {
-        nextQuestion = aiService.generateQuestion(
-          targetDomain,
-          nextTarget.key,
-          paramConfig
-        );
-      }
-    }
-
-    updatedState.nextQuestion = nextQuestion;
-
-    const matchedDoctors = await specialityService.matchBySpecialties(specialties);
-    updatedState.matchedDoctors = matchedDoctors;
-    updatedState.matchedDoctorCount = matchedDoctors.length;
-
-    // 9. SESSION UPDATE
-    sessionData.history.push({
-      message,
-      extracted,
-      timestamp: Date.now()
-    });
-
-    sessionData.state = updatedState;
-
-    await sessionService.saveSession(sessionId, sessionData);
-    await sessionService.refreshSession(sessionId);
-
-    const triageResult = shapeFinalResponse({
-      disposition,
-      domainScores: scoreResult.domainScores,
-      specialties
-    });
-
-    return res.json({
-      sessionId,
-      state: updatedState,
-      nextQuestion,
-      triageResult,
-      ...triageResult
-    });
-
-  } catch (err) {
-    console.error("Triage Error:", err);
-    return res.status(500).json({
-      triage_level: "LOW",
-      confidence: 0,
-      domains: {},
-      reasons: ["Internal server error"],
-      next_step: "Try again later",
-      specialties: ["General Physician"]
-    });
-  }
-};
-
+function isPositiveAnswer(message = "") {
+  const normalized = String(message).trim().toLowerCase();
+  return ["yes", "y", "true", "1", "yeah", "yep", "i do", "correct", "always"].includes(normalized);
+}
 
 /**
- * START TRIAGE
+ * Shape V3 Final Response for API compatibilities
+ */
+function shapeTriageResponse(session, nextQuestion = null, nextQuestionKey = null, recommendation = null) {
+  let triageResult = null;
+
+  if (recommendation) {
+    triageResult = {
+      urgency: recommendation.urgencyLevel.toUpperCase(),
+      score: Math.round((recommendation.confidenceScore || 0.8) * 100),
+      specialties: recommendation.specialties || [recommendation.specialist],
+      next_step: recommendation.explanation,
+      reasons: recommendation.warningMessage ? [recommendation.warningMessage] : [],
+    };
+  }
+
+  return {
+    success: true,
+    sessionId: session.sessionId,
+    status: session.status,
+    clinicalState: session.clinicalState,
+    nextQuestion: nextQuestion ? {
+      question: nextQuestion,
+      key: nextQuestionKey,
+      options: nextQuestionKey && (nextQuestionKey.endsWith("_presence") || !nextQuestionKey.includes("_")) ? ["Yes", "No"] : []
+    } : null,
+    triageResult,
+    // Keep backward compatible top-level properties
+    triage_level: recommendation ? recommendation.urgencyLevel.toUpperCase() : "LOW",
+    confidence: recommendation ? (recommendation.confidenceScore || 0.8) : 0,
+    specialties: recommendation ? (recommendation.specialties || [recommendation.specialist]) : ["General Physician"],
+    next_step: recommendation ? recommendation.explanation : "",
+    reasons: recommendation && recommendation.warningMessage ? [recommendation.warningMessage] : [],
+  };
+}
+
+/**
+ * START TRIAGE ENDPOINT
  */
 export const startTriage = async (req, res) => {
   try {
     const { sessionId: providedSessionId, message, text, age, gender, duration } = req.body;
     const inputMessage = (message || text || "").trim();
+    const userId = req.user.id; // Protected route
 
     if (!inputMessage) {
       return res.status(400).json({
-        triage_level: "LOW",
-        confidence: 0,
-        domains: {},
-        reasons: ["message or text is required"],
-        next_step: "Provide symptom details to start triage",
-        specialties: ["General Physician"]
+        success: false,
+        message: "Symptom description message is required to start triage.",
       });
     }
 
-    const sessionId =
-      typeof providedSessionId === "string" && providedSessionId.trim().length > 0
-        ? providedSessionId.trim()
-        : randomUUID();
-    const sessionData = sessionService.createNewSession();
+    const sessionId = providedSessionId && providedSessionId.trim().length > 0
+      ? providedSessionId.trim()
+      : randomUUID();
 
-    if (age !== undefined) sessionData.state.collectedParameters.age = age;
-    if (gender !== undefined) sessionData.state.collectedParameters.gender = gender;
-    if (duration !== undefined) sessionData.state.collectedParameters.duration = duration;
-
-    const emergency = earlyEmergencyService.check(inputMessage);
-
-    if (emergency) {
-      sessionData.history.push({
-        message: inputMessage,
-        extracted: null,
-        timestamp: Date.now()
-      });
-
-      await sessionService.saveSession(sessionId, sessionData);
-      await sessionService.refreshSession(sessionId);
-
-      const triageResult = shapeEmergencyResponse(emergency);
-
-      res.set("x-session-id", sessionId);
-      return res.json({
-        sessionId,
-        session: sessionData,
-        state: sessionData.state,
-        nextQuestion: null,
-        triageResult,
-        ...triageResult
-      });
+    // 1. Session Initialization
+    let session = await sessionService.getSession(sessionId);
+    if (!session) {
+      session = sessionService.createNewSession(userId, sessionId);
+    } else {
+      // Reset if starting fresh with new messages
+      session = await sessionService.resetSession(sessionId, userId);
     }
 
-    const extracted = await llmService.parse(inputMessage, sessionData.state);
+    // Capture initial demographics if passed
+    if (age !== undefined && age !== null) {
+      session.clinicalState.demographics.age = Number(age);
+    }
+    if (gender !== undefined && gender !== null) {
+      session.clinicalState.demographics.gender = String(gender).trim().toLowerCase();
+    }
+    if (duration !== undefined && duration !== null && duration.trim().length > 0) {
+      session.clinicalState.symptomTimeline.set("primary", String(duration).trim());
+    }
 
-    const stateForRules = mergeForRuleEvaluation(sessionData.state, extracted);
-    const ruleEngine = new RuleEngine(stateForRules);
-    const ruleResult = ruleEngine.evaluate();
-
-    const stateMachine = new StateMachineService(sessionData);
-    const updatedState = stateMachine.updateState(extracted, ruleResult);
-
-    const scoringEngine = new ScoringEngine(updatedState);
-    const scoreResult = scoringEngine.calculate();
-
-    const dispositionEngine = new DispositionEngine({
-      domainScores: scoreResult.domainScores,
-      ruleResult,
-      collectedParameters: updatedState.collectedParameters,
-      symptoms: updatedState.detectedSymptoms,
-      domainInsights: updatedState.domainInsights
+    session.conversationHistory.push({
+      role: "user",
+      content: inputMessage,
     });
 
-    const disposition = dispositionEngine.evaluate();
+    // 2. Information Extraction
+    const extracted = await extractionLayer.extract(inputMessage, session.clinicalState);
+    session.clinicalState = extractionLayer.merge(session.clinicalState, extracted);
 
-    const specialtyMapper = new SpecialtyMapper();
-    const mappedSpecialties = specialtyMapper.map(disposition.top_domains);
-    const specialties = buildSpecialties(ruleResult, mappedSpecialties);
+    // 3. Emergency Check
+    const emergency = emergencyLayer.check(session.clinicalState);
+    if (emergency.emergencyDetected) {
+      const rec = await dispositionEngine.evaluate(session.clinicalState, true, emergency.emergencyReason);
+      session.finalRecommendation = rec;
+      session.status = "COMPLETED";
 
-    const nextTarget = updatedState.shouldStop
-      ? null
-      : stateMachine.getNextQuestionTarget();
+      await sessionService.saveSession(sessionId, session);
+      return res.json(shapeTriageResponse(session, null, null, rec));
+    }
 
-    let nextQuestion = null;
+    // 4. Missing Parameters & Prioritization
+    const missing = missingInfoEngine.findMissing(session.clinicalState);
+    const prioritized = priorityEngine.prioritize(missing);
+    session.clinicalState.missingQuestions = prioritized.map((p) => p.key);
 
-    const targetDomain = nextTarget?.domain || updatedState.currentDomain;
+    // 5. Generate First Question or Finalize Triage
+    if (prioritized.length > 0) {
+      const nextQ = prioritized[0];
+      const questionText = await questionGenerator.generateQuestion(nextQ.key, session.clinicalState);
 
-    if (nextTarget?.key && targetDomain) {
-      const paramConfig =
-        DOMAIN_CONFIG[targetDomain]?.parameters?.[nextTarget.key];
+      session.conversationHistory.push({
+        role: "assistant",
+        content: questionText,
+      });
 
-      if (paramConfig) {
-        nextQuestion = aiService.generateQuestion(
-          targetDomain,
-          nextTarget.key,
-          paramConfig
-        );
+      await sessionService.saveSession(sessionId, session);
+      return res.json(shapeTriageResponse(session, questionText, nextQ.key, null));
+    } else {
+      // Sufficient information immediately available
+      const rec = await dispositionEngine.evaluate(session.clinicalState, false);
+      session.finalRecommendation = rec;
+      session.status = "COMPLETED";
+
+      const specialization = await findOrCreateSpecialization(rec.specialist);
+      await SymptomSearch.create({
+        user: userId,
+        symptomsText: inputMessage,
+        inputLanguage: "en",
+        recommendedSpecialization: specialization?._id || null,
+        recommendedSpecializationName: specialization?.name || rec.specialist || "",
+        analysisReason: rec.explanation,
+        urgencyLevel: rec.urgencyLevel === "emergency" ? "emergency" : (rec.urgencyLevel === "urgent" ? "high" : "low"),
+        warningMessage: rec.warningMessage || "",
+        matchedSymptoms: rec.matchedSymptoms || [],
+        canShowDoctors: rec.canShowDoctors,
+        retrievalQuery: rec.specialist,
+      });
+
+      await sessionService.saveSession(sessionId, session);
+      return res.json(shapeTriageResponse(session, null, null, rec));
+    }
+  } catch (error) {
+    console.error("Start Triage Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to initialize triage flow.",
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * CONTINUE TRIAGE (PROCESS USER MESSAGES)
+ */
+export const handleTriageMessage = async (req, res) => {
+  try {
+    const { sessionId, message } = req.body;
+
+    if (!sessionId || !message || message.trim().length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "sessionId and response message are required.",
+      });
+    }
+
+    const session = await sessionService.getSession(sessionId);
+    if (!session) {
+      return res.status(404).json({
+        success: false,
+        message: "Triage session not found. Start a new one.",
+      });
+    }
+
+    if (session.status === "COMPLETED") {
+      return res.json(shapeTriageResponse(session, null, null, session.finalRecommendation));
+    }
+
+    // 1. Identify what question was asked
+    const askedQuestions = session.questionHistory || [];
+    const missingKeys = session.clinicalState.missingQuestions || [];
+    const pendingQuestionKey = missingKeys[0];
+
+    session.conversationHistory.push({
+      role: "user",
+      content: message,
+    });
+
+    if (pendingQuestionKey) {
+      // Mark as answered
+      session.clinicalState.answeredQuestions.push(pendingQuestionKey);
+      session.questionHistory.push({
+        questionKey: pendingQuestionKey,
+        text: session.conversationHistory[session.conversationHistory.length - 2]?.content || "",
+        answer: message,
+      });
+
+      // Handle custom red flag question answers
+      if (pendingQuestionKey.endsWith("_presence") || !pendingQuestionKey.includes("_")) {
+        const isPositive = isPositiveAnswer(message);
+        if (isPositive) {
+          if (!session.clinicalState.symptoms.includes(pendingQuestionKey)) {
+            session.clinicalState.symptoms.push(pendingQuestionKey);
+          }
+          if (!session.clinicalState.redFlags.includes(pendingQuestionKey)) {
+            session.clinicalState.redFlags.push(pendingQuestionKey);
+          }
+        }
       }
     }
 
-    updatedState.nextQuestion = nextQuestion;
+    // 2. Run Information Extraction on the response to fetch updates
+    const extracted = await extractionLayer.extract(message, session.clinicalState);
 
-    const matchedDoctors = await specialityService.matchBySpecialties(specialties);
-    updatedState.matchedDoctors = matchedDoctors;
-    updatedState.matchedDoctorCount = matchedDoctors.length;
+    // GUARD: If the user explicitly answered negatively to the pending question key (e.g. "No" to confusion),
+    // override the LLM output and ensure that specific key is not mistakenly marked as positive.
+    if (pendingQuestionKey && !isPositiveAnswer(message)) {
+      extracted.symptoms = (extracted.symptoms || []).filter((s) => s !== pendingQuestionKey);
+      extracted.redFlags = (extracted.redFlags || []).filter((r) => r !== pendingQuestionKey);
+    }
 
-    sessionData.history.push({
-      message: inputMessage,
-      extracted,
-      timestamp: Date.now()
-    });
+    session.clinicalState = extractionLayer.merge(session.clinicalState, extracted);
 
-    sessionData.state = updatedState;
+    // 3. Emergency Check
+    const emergency = emergencyLayer.check(session.clinicalState);
+    if (emergency.emergencyDetected) {
+      const rec = await dispositionEngine.evaluate(session.clinicalState, true, emergency.emergencyReason);
+      session.finalRecommendation = rec;
+      session.status = "COMPLETED";
 
-    await sessionService.saveSession(sessionId, sessionData);
-    await sessionService.refreshSession(sessionId);
+      await sessionService.saveSession(sessionId, session);
+      return res.json(shapeTriageResponse(session, null, null, rec));
+    }
 
-    const triageResult = shapeFinalResponse({
-      disposition,
-      domainScores: scoreResult.domainScores,
-      specialties
-    });
+    // 4. Recalculate Missing Parameters & Priority
+    const missing = missingInfoEngine.findMissing(session.clinicalState);
+    const prioritized = priorityEngine.prioritize(missing);
+    session.clinicalState.missingQuestions = prioritized.map((p) => p.key);
 
-    res.set("x-session-id", sessionId);
-    return res.json({
-      sessionId,
-      session: sessionData,
-      state: updatedState,
-      nextQuestion,
-      triageResult,
-      ...triageResult
-    });
+    const questionsAskedCount = session.questionHistory.length;
 
-  } catch (err) {
-    console.error("Start Error:", err);
+    // 5. Generate next question if we have missing items and haven't exceeded MAX_QUESTIONS
+    if (prioritized.length > 0 && questionsAskedCount < MAX_QUESTIONS) {
+      const nextQ = prioritized[0];
+      const questionText = await questionGenerator.generateQuestion(nextQ.key, session.clinicalState);
+
+      session.conversationHistory.push({
+        role: "assistant",
+        content: questionText,
+      });
+
+      await sessionService.saveSession(sessionId, session);
+      return res.json(shapeTriageResponse(session, questionText, nextQ.key, null));
+    } else {
+      // Complete triage session
+      const rec = await dispositionEngine.evaluate(session.clinicalState, false);
+      session.finalRecommendation = rec;
+      session.status = "COMPLETED";
+
+      const specialization = await findOrCreateSpecialization(rec.specialist);
+      await SymptomSearch.create({
+        user: session.user,
+        symptomsText: session.conversationHistory
+          .filter((h) => h.role === "user")
+          .map((h) => h.content)
+          .join(" | "),
+        inputLanguage: "en",
+        recommendedSpecialization: specialization?._id || null,
+        recommendedSpecializationName: specialization?.name || rec.specialist || "",
+        analysisReason: rec.explanation,
+        urgencyLevel: rec.urgencyLevel === "emergency" ? "emergency" : (rec.urgencyLevel === "urgent" ? "high" : "low"),
+        warningMessage: rec.warningMessage || "",
+        matchedSymptoms: rec.matchedSymptoms || [],
+        canShowDoctors: rec.canShowDoctors,
+        retrievalQuery: rec.specialist,
+      });
+
+      await sessionService.saveSession(sessionId, session);
+      return res.json(shapeTriageResponse(session, null, null, rec));
+    }
+  } catch (error) {
+    console.error("Triage Message Error:", error);
     return res.status(500).json({
-      triage_level: "LOW",
-      confidence: 0,
-      domains: {},
-      reasons: ["Internal server error"],
-      next_step: "Try again later",
-      specialties: ["General Physician"]
+      success: false,
+      message: "Failed to process triage response.",
+      error: error.message,
     });
   }
 };

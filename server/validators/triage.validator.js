@@ -12,6 +12,7 @@ export const triageMessageSchema = z.object({
  * OPTIONAL: START ENDPOINT VALIDATION
  */
 export const triageStartSchema = z.object({
+  sessionId: z.string().min(10).max(100).optional(),
   text: z.string().min(1).max(2000).optional(),
   message: z.string().min(1).max(2000).optional(),
   age: z.number().int().min(0).max(120).optional(),
