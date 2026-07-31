@@ -806,6 +806,99 @@ export default function Home() {
         </div>
       </section>
 
+      {/* ── PRESCRIPTION ANALYZER SHOWCASE ────────────────── */}
+      <section className="py-24 bg-[#070b13] border-t border-white/5 relative z-10">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-16 items-center">
+            
+            {/* Left side: Premium Text Stack */}
+            <div className="lg:col-span-6 space-y-6">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-bold uppercase tracking-wider">
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>New Feature: Prescription Parsing</span>
+              </div>
+              <h2 className="text-3xl md:text-5xl font-black tracking-tight text-white leading-tight">
+                Read Cursive Scripts. <br />
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-[#2dd4bf]">
+                  Find Affordable Alternatives.
+                </span>
+              </h2>
+              <p className="text-text-sub text-base leading-relaxed">
+                Struggling to read a doctor&apos;s handwritten prescription? Upload it to CareFind. Our AI extracts drug details, translates strengths, checks live market prices in Bangladesh (BDT), and matches generic alternatives to save you up to 30% on medicine costs.
+              </p>
+              
+              <ul className="space-y-4">
+                {[
+                  { title: "Handwriting Digitization", text: "Advanced vision model translates cursive doctor scripts into plain digital text." },
+                  { title: "BDT Price Grounding", text: "Real-time Google search grounding fetches current pricing in Bangladeshi Taka." },
+                  { title: "Generic Matching Engine", text: "Identifies direct, lower-cost bioequivalent brands from Square, Incepta, and Beximco." }
+                ].map((item, idx) => (
+                  <li key={idx} className="flex gap-3">
+                    <Check className="w-5 h-5 text-primary shrink-0 mt-1" />
+                    <div>
+                      <h4 className="font-bold text-sm text-white">{item.title}</h4>
+                      <p className="text-xs text-text-muted leading-normal mt-0.5">{item.text}</p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+
+              <div className="pt-4">
+                <Link 
+                  href="/prescription-analyzer" 
+                  className="inline-flex items-center gap-2 bg-primary hover:bg-primary-hover text-white px-8 h-12 rounded-xl font-bold transition-all shadow-lg shadow-primary/25"
+                >
+                  <span>Try Prescription Analyzer</span>
+                  <ArrowRight className="w-4 h-4" />
+                </Link>
+              </div>
+            </div>
+
+            {/* Right side: Mock UI scan preview */}
+            <div className="lg:col-span-6 w-full flex justify-center relative">
+              <div className="absolute inset-0 bg-[#2dd4bf]/10 blur-[130px] rounded-full pointer-events-none" />
+              
+              <div className="w-full max-w-md bg-[#0d1525] border border-white/10 rounded-2xl p-6 shadow-2xl space-y-5">
+                <div className="flex items-center justify-between border-b border-white/5 pb-3">
+                  <span className="text-xs font-bold text-text-muted uppercase">Image Analysis Scan</span>
+                  <span className="text-xs font-bold text-[#2dd4bf] bg-[#2dd4bf]/10 border border-[#2dd4bf]/20 px-2.5 py-0.5 rounded-full">Active</span>
+                </div>
+
+                {/* Scanned Card */}
+                <div className="space-y-4">
+                  <div className="bg-[#070b13] p-4 rounded-xl border border-white/5 space-y-3">
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="font-bold text-white">Extracted: Seclo 20 mg</span>
+                      <span className="text-text-muted">৳ 7.00/unit</span>
+                    </div>
+                    <div className="w-full bg-white/5 h-1.5 rounded-full overflow-hidden">
+                      <div className="bg-primary h-full w-full rounded-full" />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-center py-1">
+                    <ChevronRight className="w-5 h-5 text-primary rotate-90 animate-bounce" />
+                  </div>
+
+                  {/* Alternative Card */}
+                  <div className="bg-[#070b13] p-4 rounded-xl border border-[#2dd4bf]/20 space-y-3">
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="font-bold text-[#2dd4bf]">Alternative: Proceptin 20 mg</span>
+                      <span className="text-[#2dd4bf]">৳ 5.00/unit</span>
+                    </div>
+                    <div className="flex justify-between items-center text-[10px] text-text-muted">
+                      <span>Incepta Pharmaceuticals</span>
+                      <span className="text-[#2dd4bf] font-bold">Save 28% (৳ 2.00 saved)</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </section>
+
       {/* ── TESTIMONIALS / PATIENT STORIES ──────────────────────── */}
       <section className="py-24 bg-[#070b13] border-t border-white/5">
         <div className="max-w-7xl mx-auto px-6">

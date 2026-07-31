@@ -6,8 +6,10 @@ import ThemeToggle from "../Themes/ThemeToggle";
 import { useAuth } from "@/authContext/authContext";
 import { usePathname } from "next/navigation";
 import MobileDrawer from "./MobileDrawer";
+import PrescriptionPollNotifier from "./PrescriptionPollNotifier";
 
 const navLinks = [
+  { name: "Prescription Analyzer", href: "/prescription-analyzer" },
   { name: "Features", href: "/#features" },
   { name: "How It Works", href: "/#how-it-works" },
 ];
@@ -109,6 +111,7 @@ export default function Header() {
         </div>
 
       </div>
+      <PrescriptionPollNotifier />
     </header>
   );
 }

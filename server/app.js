@@ -6,6 +6,14 @@ import pinoHttp from "pino-http";
 import createError from "http-errors";
 import apiRoutes from "./routes/apiRoutes.js";
 import { isAllowedOrigin } from "./utils/origin.js";
+import { 
+  analyzePrescription, 
+  getJobStatus,
+  getUnseenJobs,
+  markJobAsViewed,
+  getJobHistory
+} from "./controllers/prescription.controller.js";
+import { protect } from "./middleware/authMiddleware.js";
 
 const app = express();
 app.set("trust proxy", 1);
@@ -53,6 +61,11 @@ app.get("/api/test", (req, res) => {
 });
 
 app.use("/api/v1", apiRoutes);
+app.post("/api/analyze-prescription", protect, analyzePrescription);
+app.get("/api/prescription/job/:jobId/status", protect, getJobStatus);
+app.get("/api/prescriptions/unseen", protect, getUnseenJobs);
+app.post("/api/prescriptions/:jobId/viewed", protect, markJobAsViewed);
+app.get("/api/prescriptions/history", protect, getJobHistory);
 
 
 /* -------------------- 404 ------------------------------- */

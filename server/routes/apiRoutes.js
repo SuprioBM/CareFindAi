@@ -10,6 +10,7 @@ import authRoutes from "./auth.routes.js";
 import aiRoutes from "./ai.routes.js";
 import analyticsRoutes from "./analytics.router.js";
 import triageRoutes from "./triage.routes.js";
+import prescriptionRoutes from "./prescription.routes.js";
 import axios from "axios";
 
 const router = express.Router();
@@ -24,6 +25,7 @@ router.use("/doctor-join-requests", doctorJoinRequestRoutes);
 router.use("/ai", aiRoutes);
 router.use("/analytics", analyticsRoutes);
 router.use("/triage", triageRoutes);
+router.use("/prescription", prescriptionRoutes);
 
 router.get('/keep-alive', async (req, res) => {
   try {
