@@ -89,6 +89,7 @@ function PrescriptionAnalyzerContent() {
   const [unseenReports, setUnseenReports] = useState<any[]>([]);
   const [historyJobs, setHistoryJobs] = useState<any[]>([]);
   const [unifiedHistory, setUnifiedHistory] = useState<any[]>([]);
+  const [activeScans, setActiveScans] = useState<any[]>([]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -185,10 +186,22 @@ function PrescriptionAnalyzerContent() {
       mergedList.sort((a, b) => b.createdAt - a.createdAt);
       setUnifiedHistory(mergedList);
 
+      const running = mergedList.filter(job => job.status === 'pending' || job.status === 'processing');
+      setActiveScans(running);
+
     } catch (err) {
       console.error("Error loading prescription persistence data:", err);
     }
   };
+
+    useEffect(() => {
+    if (step !== 'idle' || activeScans.length === 0 || !user) return;
+    const interval = setInterval(() => {
+      fetchPersistenceData();
+    }, 6000);
+    return () => clearInterval(interval);
+  }, [step, activeScans.length, user]);
+
 
   const pollJobStatus = async (jobId: string) => {
     setLoading(true);
@@ -454,6 +467,39 @@ function PrescriptionAnalyzerContent() {
             </div>
           </div>
         )}
+
+        {activeScans.length > 0 && (
+              <div className="mt-8 bg-[#0d1525] border border-primary/20 rounded-2xl p-6 space-y-4 shadow-xl max-w-3xl">
+                <h3 className="text-sm font-bold text-white flex items-center gap-2 border-b border-white/5 pb-2">
+                  <Activity className="w-4 h-4 text-primary shrink-0 animate-pulse" />
+                  <span>⏳ Active Analyses in Progress</span>
+                </h3>
+                <div className="divide-y divide-white/5 space-y-3">
+                  {activeScans.map((job) => (
+                    <div key={job.jobId} className="pt-2 flex items-center justify-between gap-4 text-xs font-semibold">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-[#070b13] flex items-center justify-center border border-white/5 shrink-0">
+                          <RefreshCw className="w-4 h-4 text-primary animate-spin" />
+                        </div>
+                        <div>
+                          <p className="text-white font-bold">{job.fileName}</p>
+                          <p className="text-[10px] text-text-muted mt-0.5">Started: {new Date(job.createdAt).toLocaleTimeString()}</p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => router.push(`/prescription-analyzer?jobId=${job.jobId}`)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/10 hover:bg-primary/20 border border-primary/20 text-primary font-bold transition-colors"
+                      >
+                        <span>View Live Progress</span>
+                        <ChevronRight className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+       
+
 
         {/* ── SCREEN 1: UPLOAD & INPUT ──────────────────────────── */}
         {step === 'idle' && (
