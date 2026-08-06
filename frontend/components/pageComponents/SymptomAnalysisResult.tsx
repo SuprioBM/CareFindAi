@@ -88,7 +88,7 @@ export default function SymptomAnalysisResult({
         longitude: position.coords.longitude,
         specialization: selectedSpecialty.trim(),
       });
-      router.push('/find_nearby_doctors');
+      window.open('/find_nearby_doctors','_blank');
 
       
     } catch (err: any) {
@@ -279,8 +279,8 @@ export default function SymptomAnalysisResult({
           <button
             type="button"
             onClick={() =>
-              router.push(
-                `/manual-search?specialist=${encodeURIComponent(selectedSpecialty || "")}`
+              window.open(
+                `/manual-search?specialist=${encodeURIComponent(selectedSpecialty || "")}, '_blank'`
               )
             }
             disabled={!selectedSpecialty}
