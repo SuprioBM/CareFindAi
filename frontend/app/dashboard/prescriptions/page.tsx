@@ -11,7 +11,8 @@ import {
   ChevronRight,
   Activity,
   History,
-  AlertTriangle
+  AlertTriangle,
+  FileImage
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api';
 import { useAuth } from '@/authContext/authContext';
@@ -29,6 +30,8 @@ type ServerJob = {
   createdAt: string;
   completedAt: string | null;
   error?: string | null;
+  image?: string | null;
+  result?: any | null;
 };
 
 export default function PrescriptionHistoryPage() {
@@ -73,13 +76,21 @@ export default function PrescriptionHistoryPage() {
 
       // Server history first
       historyList.forEach(sj => {
+        // Extract medicine names as filename if result is available
+        const meds = sj.result?.prescribedMedications || [];
+        const labelText = meds.length > 0
+          ? meds.map((m: any) => m.medicineName).slice(0, 2).join(', ') + (meds.length > 2 ? '...' : '')
+          : "Prescription Scan";
+
         mergedMap.set(sj.jobId, {
           jobId: sj.jobId,
-          fileName: "Prescription Scan", // Fallback name
+          fileName: labelText,
           status: sj.status,
           createdAt: new Date(sj.createdAt).getTime(),
           completedAt: sj.completedAt ? new Date(sj.completedAt).getTime() : null,
           error: sj.error || null,
+          image: sj.image || null,
+          result: sj.result || null,
           source: 'server'
         });
       });
@@ -94,6 +105,8 @@ export default function PrescriptionHistoryPage() {
           createdAt: lj.createdAt || (existing?.createdAt ?? Date.now()),
           completedAt: existing?.completedAt ?? null,
           error: lj.status === 'failed' ? (existing?.error ?? 'Analysis failed') : null,
+          image: existing?.image || null,
+          result: existing?.result || null,
           source: 'local'
         });
       });
@@ -113,15 +126,15 @@ export default function PrescriptionHistoryPage() {
 
   if (authLoading || loading) {
     return (
-      <div className="min-h-[50vh] flex flex-col items-center justify-center text-text-sub gap-4">
+      <div className="min-h-[50vh] flex flex-col items-center justify-center text-text-sub gap-4 bg-surface text-text-base">
         <Activity className="w-8 h-8 text-primary animate-spin" />
-        <p className="text-sm font-semibold tracking-wider">Loading prescription logs...</p>
+        <p className="text-sm font-bold tracking-wider uppercase">Loading prescription logs...</p>
       </div>
     );
   }
 
   return (
-    <div className="px-4 sm:px-6 md:px-12 py-6 md:py-10 flex justify-center min-h-[80vh]">
+    <div className="px-4 sm:px-6 md:px-12 py-6 md:py-10 flex justify-center min-h-[80vh] bg-surface text-text-base transition-colors duration-300">
       <div className="flex flex-col w-full max-w-[800px] space-y-8">
         
         {/* Page Header */}
@@ -134,18 +147,18 @@ export default function PrescriptionHistoryPage() {
             <span>Back to Dashboard</span>
           </button>
           
-          <div className="flex flex-col gap-2">
-            <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-white">
+          <div className="flex flex-col gap-2 border-b border-border pb-5">
+            <h1 className="text-3xl md:text-4xl font-black tracking-tight text-text-base">
               Prescription Scans
             </h1>
-            <p className="text-text-muted text-sm md:text-base">
+            <p className="text-text-muted text-sm font-semibold">
               Manage your background prescription parsing history, BDT pricing audits, and bioequivalent drug alternatives.
             </p>
           </div>
         </div>
 
         {error && (
-          <div className="rounded-xl border border-red-500/20 bg-red-500/5 px-4 py-3.5 text-sm text-red-400 flex items-center gap-2">
+          <div className="rounded-xl border border-red-500/20 bg-red-500/5 px-4 py-3.5 text-sm text-red-500 font-bold flex items-center gap-2">
             <AlertTriangle className="w-5 h-5 shrink-0" />
             <span>{error}</span>
           </div>
@@ -153,72 +166,93 @@ export default function PrescriptionHistoryPage() {
 
         {/* Unified scan history list */}
         <div className="bg-card border border-border rounded-2xl p-6 shadow-xl space-y-6">
-          <h2 className="text-lg font-bold text-white flex items-center gap-2 border-b border-border pb-3">
+          <h2 className="text-base font-bold text-text-base flex items-center gap-2 border-b border-border pb-3">
             <History className="w-5 h-5 text-primary shrink-0" />
             <span>All Scans ({unifiedHistory.length})</span>
           </h2>
 
           {unifiedHistory.length === 0 ? (
             <div className="py-16 text-center space-y-4 max-w-sm mx-auto">
-              <div className="w-12 h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-text-muted mx-auto">
+              <div className="w-12 h-12 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary mx-auto">
                 <FileText className="w-6 h-6" />
               </div>
               <div className="space-y-1">
-                <h3 className="font-bold text-sm text-white">No scans found</h3>
-                <p className="text-xs text-text-muted leading-relaxed">
+                <h3 className="font-bold text-sm text-text-base">No scans found</h3>
+                <p className="text-xs text-text-muted leading-relaxed font-semibold">
                   You haven&apos;t uploaded any prescriptions yet. Go to the Prescription Analyzer page to get started.
                 </p>
               </div>
               <button
                 onClick={() => router.push('/prescription-analyzer')}
-                className="inline-flex items-center gap-2 px-5 py-2 rounded-xl bg-primary hover:bg-primary-hover text-white text-xs font-bold uppercase tracking-wider transition-all"
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary hover:bg-primary-hover text-white text-xs font-bold uppercase tracking-wider transition-all"
               >
                 <span>New Analysis</span>
                 <ArrowLeft className="w-3.5 h-3.5 rotate-180" />
               </button>
             </div>
           ) : (
-            <div className="divide-y divide-border pr-2 space-y-3">
+            <div className="divide-y divide-border pr-2 space-y-4">
               {unifiedHistory.map((job) => (
                 <div key={job.jobId} className="pt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs font-semibold">
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-white/5 flex items-center justify-center text-text-muted border border-border shrink-0">
-                      <FileText className="w-4.5 h-4.5 text-primary" />
+                  <div className="flex items-center gap-4">
+                    
+                    {/* Prescription image thumbnail preview */}
+                    <div className="w-14 h-14 rounded-xl border border-border overflow-hidden bg-surface flex items-center justify-center shrink-0">
+                      {job.image ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img 
+                          src={job.image} 
+                          alt="Prescription Scan" 
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <FileImage className="w-6 h-6 text-text-muted" />
+                      )}
                     </div>
+
                     <div>
-                      <p className="text-white font-bold text-sm">{job.fileName}</p>
-                      <div className="flex items-center gap-3 text-[10px] text-text-muted mt-1">
+                      <p className="text-text-base font-bold text-sm">{job.fileName}</p>
+                      
+                      {job.result?.prescribedMedications && (
+                        <p className="text-[11px] text-primary font-bold mt-0.5 uppercase tracking-wider">
+                          Extracted: {job.result.prescribedMedications.length} medicines
+                        </p>
+                      )}
+
+                      <div className="flex items-center gap-3 text-[10px] text-text-muted mt-1 font-bold">
                         <span>Started: {new Date(job.createdAt).toLocaleString()}</span>
                         {job.completedAt && (
-                          <span className="text-[#2dd4bf] font-bold">
+                          <span className="text-emerald-500 font-bold">
                             Completed: {new Date(job.completedAt).toLocaleTimeString()}
                           </span>
                         )}
                       </div>
+                      
                       {job.error && (
-                        <p className="text-red-400 text-[10px] mt-1 italic font-medium">
+                        <p className="text-red-500 text-[10px] mt-1 italic font-semibold">
                           Error: {job.error}
                         </p>
                       )}
                     </div>
                   </div>
+                  
                   <div className="flex items-center gap-3 self-end sm:self-auto">
                     {job.status === 'completed' ? (
                       <button
                         onClick={() => router.push(`/prescription-analyzer?jobId=${job.jobId}`)}
-                        className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 text-emerald-400 font-bold transition-colors"
+                        className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-bold transition-colors uppercase tracking-wider text-[10px]"
                       >
                         <CheckCircle className="w-3.5 h-3.5" />
                         <span>View Report</span>
                       </button>
                     ) : job.status === 'failed' ? (
-                      <span className="px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 font-bold">
+                      <span className="px-3 py-2 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 font-bold uppercase tracking-wider text-[10px]">
                         Failed
                       </span>
                     ) : (
                       <button
                         onClick={() => router.push(`/prescription-analyzer?jobId=${job.jobId}`)}
-                        className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-primary/10 hover:bg-primary/20 border border-primary/20 text-primary font-bold transition-colors animate-pulse"
+                        className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-primary/10 hover:bg-primary/20 border border-primary/20 text-primary font-bold transition-colors animate-pulse uppercase tracking-wider text-[10px]"
                       >
                         <RefreshCw className="w-3.5 h-3.5 animate-spin" />
                         <span>Scanning...</span>

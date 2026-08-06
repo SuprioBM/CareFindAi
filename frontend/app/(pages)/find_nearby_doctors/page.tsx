@@ -7,6 +7,7 @@ import { useAuth } from '@/authContext/authContext';
 import SavedLocationModal from "@/components/ModalComponent/SavedLocationModal";
 import { useSavedLocations,SavedLocation } from "@/lib/useSavedLocations";
 import { useRouter } from 'next/navigation';
+import { X, Plus, ArrowUpDown, Heart, Star, Navigation, MapPin } from 'lucide-react';
 
 // types for typesctipt
 interface SessionDoctor {
@@ -366,9 +367,9 @@ useEffect(() => {
       <div className="flex items-center justify-between mb-4">
         <div className="flex flex-wrap gap-2">
           {sessionSpecialization && (
-            <div className="flex h-8 items-center gap-1 rounded-full border border-primary bg-primary/10 text-primary px-3 text-sm font-medium">
-              {sessionSpecialization}
-              <span className="material-symbols-outlined text-[16px]">close</span>
+            <div className="flex h-8 items-center gap-1 rounded-full border border-primary bg-primary/10 text-primary px-3 text-xs font-bold uppercase tracking-wider">
+              <span>{sessionSpecialization}</span>
+              <X className="w-3.5 h-3.5 cursor-pointer" />
             </div>
           )}
         </div>
@@ -377,25 +378,23 @@ useEffect(() => {
           <div className="ml-4">
             <button
               onClick={openSaveModal}
-              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border bg-card text-sm font-medium hover:bg-white/5 transition-colors"
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border border-border bg-surface text-xs font-bold uppercase tracking-wider text-text-sub hover:bg-card transition-all"
             >
-              <span className="material-symbols-outlined text-[18px]">add</span>
-              Save Location
+              <Plus className="w-3.5 h-3.5 text-primary" />
+              <span>Save Location</span>
             </button>
           </div>
         )}
       </div>
 
-      <div className="flex items-center justify-between text-sm">
-        <span className="text-text-muted font-medium">
+      <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider">
+        <span className="text-text-muted">
           {doctors.length} doctors found
         </span>
 
-        <button className="flex items-center gap-1.5 text-text-sub hover:text-primary transition-colors font-medium">
-          <span className="material-symbols-outlined text-[18px]">
-            sort
-          </span>
-          Sort by: Recommended
+        <button className="flex items-center gap-1.5 text-text-sub hover:text-primary transition-colors">
+          <ArrowUpDown className="w-3.5 h-3.5 text-primary" />
+          <span>Sort by: Recommended</span>
         </button>
       </div>
     </div>
@@ -504,7 +503,7 @@ function DoctorCard({
       onClick={onSelect}
       className={`group flex gap-4 rounded-xl border p-4 transition-all cursor-pointer relative overflow-hidden ${
         isSelected
-          ? 'border-primary bg-primary/5 shadow-md'
+          ? 'border-primary bg-primary/5 shadow-md scale-[1.01]'
           : 'border-border bg-surface hover:border-primary/50 hover:shadow-sm'
       }`}
     >
@@ -522,7 +521,7 @@ function DoctorCard({
       <div className="flex flex-col flex-1 min-w-0">
         <div className="flex justify-between items-start mb-1">
           <h2
-            className={`text-lg font-bold truncate transition-colors pr-2 ${
+            className={`text-base font-bold truncate transition-colors pr-2 ${
               isSelected ? 'text-primary' : 'text-text-base group-hover:text-primary'
             }`}
           >
@@ -538,24 +537,14 @@ function DoctorCard({
               isFavorited ? 'text-rose-500' : 'text-text-muted hover:text-rose-500'
             }`}
           >
-            <span
-              className="material-symbols-outlined text-[20px]"
-              style={isFavorited ? { fontVariationSettings: "'FILL' 1" } : {}}
-            >
-              favorite
-            </span>
+            <Heart className={`w-4.5 h-4.5 ${isFavorited ? 'fill-rose-500 text-rose-500' : ''}`} />
           </button>
         </div>
 
-        <p className="text-primary text-sm font-medium mb-1">{doc.specialty}</p>
+        <p className="text-primary text-xs font-bold mb-1 uppercase tracking-wider">{doc.specialty}</p>
 
-        <div className="flex items-center gap-1 text-sm text-text-muted mb-2">
-          <span
-            className="material-symbols-outlined text-[16px] text-amber-400"
-            style={{ fontVariationSettings: "'FILL' 1" }}
-          >
-            star
-          </span>
+        <div className="flex items-center gap-1 text-xs text-text-muted mb-2 font-semibold">
+          <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400 shrink-0" />
           <span className="font-bold text-text-base">{doc.rating.toFixed(1)}</span>
           <span>({doc.reviews} reviews)</span>
           <span className="mx-1">•</span>
@@ -564,54 +553,44 @@ function DoctorCard({
 
         <div className="flex items-center flex-wrap gap-2 mt-auto">
           {doc.availability === 'today' ? (
-            <span className="inline-flex items-center gap-1 rounded bg-success/10 px-2 py-1 text-xs font-medium text-success border border-success/20">
+            <span className="inline-flex items-center gap-1 rounded-lg bg-success/10 px-2.5 py-1 text-xs font-bold text-success border border-success/20 uppercase tracking-wider">
               <span className="size-1.5 rounded-full bg-success" /> Available Today
             </span>
           ) : (
-            <span className="inline-flex items-center rounded bg-section-teal px-2 py-1 text-xs font-medium text-text-sub border border-border">
+            <span className="inline-flex items-center rounded-lg bg-section-teal px-2.5 py-1 text-xs font-bold text-text-sub border border-border">
               Next: {doc.availability === 'tomorrow' ? 'Tomorrow' : doc.availability}
             </span>
           )}
 
-          <span className="inline-flex items-center rounded bg-section-teal px-2 py-1 text-xs font-medium text-text-sub border border-border">
+          <span className="inline-flex items-center rounded-lg bg-section-teal px-2.5 py-1 text-xs font-bold text-text-sub border border-border">
             {doc.insurance}
           </span>
-            <button
-  onClick={() => router.push(`/find_nearby_doctors/${doc.id}`)}
-  style={{
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: '6px 10px',
-    borderRadius: '10px',
-    border: '1px solid #0d9488',
-    background: 'rgba(13,148,136,0.08)',
-    color: '#0d9488',
-    fontSize: '12px',
-    fontWeight: 600,
-    cursor: 'pointer',
-  }}
->
-  View Profile
-</button>
+          
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              router.push(`/find_nearby_doctors/${doc.id}`);
+            }}
+            className="px-3 py-1.5 rounded-xl border border-primary/20 bg-primary/5 text-primary text-xs font-bold hover:bg-primary hover:text-white transition-colors"
+          >
+            Profile
+          </button>
+
           {isSelected && (
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 onGetDirections();
               }}
-              className={`hidden lg:inline-flex items-center gap-1 ml-auto rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
+              className={`hidden lg:inline-flex items-center gap-1 ml-auto rounded-xl px-3 py-1.5 text-xs font-bold uppercase tracking-wider transition-all ${
                 isRouting
                   ? 'bg-primary text-white shadow-sm shadow-primary/30'
                   : 'bg-primary/10 text-primary border border-primary/30 hover:bg-primary hover:text-white'
               }`}
             >
-              <span className="material-symbols-outlined text-[14px]">
-                {isRouting ? 'route' : 'directions'}
-              </span>
-              {isRouting ? 'Route active' : 'Get Directions'}
+              <Navigation className="w-3.5 h-3.5" />
+              <span>{isRouting ? 'Routing' : 'Directions'}</span>
             </button>
-            
           )}
         </div>
       </div>

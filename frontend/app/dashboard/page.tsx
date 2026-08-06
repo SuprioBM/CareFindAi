@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Main Dashboard Page
  *
  * Shows a preview of the user's previous symptom searches (up to 6 chips)
@@ -19,6 +19,18 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/authContext/authContext';
 import { apiFetch } from '@/lib/api';
+import { 
+  Heart, 
+  Activity, 
+  Baby, 
+  Brain, 
+  Search, 
+  Clock, 
+  ShieldCheck, 
+  MapPin, 
+  UserPlus,
+  Plus
+} from 'lucide-react';
 
 // A single symptom search record (partial shape — only fields needed for dashboard chips)
 type SymptomSearchItem = {
@@ -53,7 +65,7 @@ type BookmarkResponse = {
 
 type PreviousSearchChip = {
   id: string;
-  icon: string;
+  IconComponent: React.ComponentType<{ className?: string }>;
   label: string;
 };
 
@@ -68,13 +80,13 @@ type SavedDoctorCard = {
 
 const DEFAULT_DOCTOR_PHOTO = '/default-doctor.png';
 
-function getSearchIcon(label: string): string {
+function getSearchIcon(label: string): React.ComponentType<{ className?: string }> {
   const text = label.toLowerCase();
-  if (text.includes('heart') || text.includes('cardio')) return 'monitor_heart';
-  if (text.includes('skin') || text.includes('derma')) return 'healing';
-  if (text.includes('child') || text.includes('pedia')) return 'child_care';
-  if (text.includes('neuro') || text.includes('head')) return 'neurology';
-  return 'search';
+  if (text.includes('heart') || text.includes('cardio')) return Heart;
+  if (text.includes('skin') || text.includes('derma')) return Activity;
+  if (text.includes('child') || text.includes('pedia')) return Baby;
+  if (text.includes('neuro') || text.includes('head')) return Brain;
+  return Search;
 }
 
 export default function DashboardPage() {
@@ -101,78 +113,71 @@ export default function DashboardPage() {
 
     let cancelled = false;
 
-    const loadDashboardData = async () => {
+    // Fetch both datasets concurrently
+    async function loadDashboardData() {
       try {
         setLoading(true);
         setError('');
 
-        // Fetch BOTH datasets simultaneously (parallel) to speed up dashboard load time.
-        // GET /symptom-searches → user's previous symptom searches
-        // GET /bookmarks        → user's saved/bookmarked doctors
-        const [searchRes, bookmarkRes] = await Promise.all([
-          apiFetch('/symptom-searches', { method: 'GET' }),
-          apiFetch('/bookmarks', { method: 'GET' }),
+        const [searchesRes, bookmarksRes] = await Promise.all([
+          apiFetch('/triage/history?limit=6'),
+          apiFetch('/bookmarks?limit=6')
         ]);
 
-        // Parse both responses; .catch(() => null) prevents one failure from breaking both
-        const [searchJson, bookmarkJson] = await Promise.all([
-          searchRes.json().catch(() => null),
-          bookmarkRes.json().catch(() => null),
-        ]);
+        if (cancelled) return;
 
-        const searchData = (searchJson as SymptomSearchesResponse | null)?.data ?? [];
-        const bookmarkData = (bookmarkJson as BookmarkResponse | null)?.data ?? [];
-
-        // Map the 6 most recent searches into chip display objects.
-        // Each chip shows the symptom text + a relevant icon based on specialty keywords.
-        const mappedSearches = searchData.slice(0, 6).map((item) => {
-          // Use symptom text as chip label; fall back to specialization name if empty
-          const label =
-            item.symptomsText?.trim() ||
-            item.recommendedSpecializationName?.trim() ||
-            'Symptom analysis';
-
-          return {
-            id: item._id,
-            icon: getSearchIcon(label), // Pick icon based on keywords in the label
-            label,
-          };
-        });
-
-        // Map the 6 most recently saved doctors into card display objects.
-        // Each card shows: photo, name, specialty, city, and a Book button → doctor profile ()
-        const mappedDoctors = bookmarkData.slice(0, 6).map((item) => {
-          const doctor = item.doctor;
-          return {
-            bookmarkId: item._id,
-            doctorId: doctor?._id || item._id,          // Used in href="/doctors/:id" ()
-            name: doctor?.fullName || 'Unknown Doctor',
-            specialty: doctor?.specializationName || 'General Medicine',
-            location: doctor?.city || 'Location unavailable',
-            photo: doctor?.profileImage || DEFAULT_DOCTOR_PHOTO,
-          };
-        });
-
-        if (!cancelled) {
-          setPreviousSearches(mappedSearches);
-          setSavedDoctors(mappedDoctors);
-
-          if (!searchRes.ok && !bookmarkRes.ok) {
-            setError('Could not load dashboard data right now.');
+        // Parse previous searches
+        let searchesList: PreviousSearchChip[] = [];
+        if (searchesRes.ok) {
+          const body = (await searchesRes.json()) as SymptomSearchesResponse;
+          if (body.success && Array.isArray(body.data)) {
+            searchesList = body.data.map((item) => {
+              const label = item.symptomsText || item.recommendedSpecializationName || 'Symptom Search';
+              return {
+                id: item._id,
+                IconComponent: getSearchIcon(label),
+                label: label.length > 24 ? `${label.substring(0, 22)}...` : label
+              };
+            });
           }
         }
-      } catch {
+
+        // Parse saved doctors
+        let doctorsList: SavedDoctorCard[] = [];
+        if (bookmarksRes.ok) {
+          const body = (await bookmarksRes.json()) as BookmarkResponse;
+          if (body.success && Array.isArray(body.data)) {
+            doctorsList = body.data
+              .filter((item) => item.doctor)
+              .map((item) => {
+                const doc = item.doctor!;
+                return {
+                  bookmarkId: item._id,
+                  doctorId: doc._id || '',
+                  name: doc.fullName || 'Doctor Profile',
+                  specialty: doc.specializationName || 'Specialist',
+                  location: doc.city || 'Dhaka Central',
+                  photo: doc.profileImage || DEFAULT_DOCTOR_PHOTO
+                };
+              });
+          }
+        }
+
         if (!cancelled) {
-          setPreviousSearches([]);
-          setSavedDoctors([]);
-          setError('Could not load dashboard data right now.');
+          setPreviousSearches(searchesList);
+          setSavedDoctors(doctorsList);
+        }
+      } catch (err: any) {
+        console.error('Dashboard load error:', err);
+        if (!cancelled) {
+          setError('Failed to load dashboard summaries.');
         }
       } finally {
         if (!cancelled) {
           setLoading(false);
         }
       }
-    };
+    }
 
     void loadDashboardData();
 
@@ -194,10 +199,10 @@ export default function DashboardPage() {
       <div className="bg-surface text-text-base min-h-[calc(100vh-80px)] flex items-center justify-center p-6">
         <div className="w-full max-w-md rounded-2xl border border-border bg-card p-8 text-center shadow-sm">
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary">
-            <span className="material-symbols-outlined">lock</span>
+            <Clock className="w-6 h-6" />
           </div>
           <h1 className="mb-2 text-2xl font-bold tracking-tight">Login to see the dashboard</h1>
-          <p className="mb-6 text-sm text-text-muted">
+          <p className="mb-6 text-sm text-text-muted font-semibold">
             Please sign in to access your health insights, saved doctors, and search history.
           </p>
           <Link
@@ -212,19 +217,19 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="p-6 md:p-10">
+    <div className="p-6 md:p-10 transition-colors duration-300">
       <div className="max-w-6xl mx-auto flex flex-col gap-10">
 
             {/* Welcome */}
             <div>
-              <h1 className="text-3xl font-bold tracking-tight mb-2">
+              <h1 className="text-3xl font-black tracking-tight mb-2">
                 Welcome back, {user?.name || user?.email || 'there'}
               </h1>
-              <p className="text-text-muted">Here&apos;s what&apos;s happening with your health journey today.</p>
+              <p className="text-text-muted font-semibold">Here&apos;s what&apos;s happening with your health journey today.</p>
             </div>
 
             {error && (
-              <div className="rounded-xl border border-error/30 bg-error/10 px-4 py-3 text-sm text-error">
+              <div className="rounded-xl border border-error/30 bg-error/10 px-4 py-3 text-sm text-error font-semibold">
                 {error}
               </div>
             )}
@@ -235,14 +240,17 @@ export default function DashboardPage() {
              * Each chip displays the symptom text with a relevant medical icon.
              * "View all" links to /dashboard/previous_searches for the full paginated history.
              */}
-            <section>
-              <div className="flex items-center justify-between mb-4">
+            <section className="space-y-4">
+              <div className="flex items-center justify-between">
                 <h2 className="text-lg font-bold flex items-center gap-2">
-                  <span className="material-symbols-outlined text-primary">history</span>
-                  Previous Searches
+                  <Clock className="w-5 h-5 text-primary" />
+                  <span>Previous Triage Reports</span>
                 </h2>
-                <Link href="/dashboard/previous_searches" className="text-sm font-medium text-primary hover:underline">View all</Link>
+                <Link href="/dashboard/previous_searches" className="text-xs font-bold text-primary hover:underline uppercase tracking-wider">
+                  View all
+                </Link>
               </div>
+              
               <div className="flex gap-3 flex-wrap">
                 {loading &&
                   Array.from({ length: 4 }).map((_, index) => (
@@ -253,18 +261,18 @@ export default function DashboardPage() {
                   ))}
 
                 {!loading && previousSearches.length === 0 && (
-                  <p className="text-sm text-text-muted">No previous searches yet.</p>
+                  <p className="text-sm text-text-muted font-semibold">No previous searches yet.</p>
                 )}
 
                 {!loading &&
-                  previousSearches.map(({ id, icon, label }) => (
+                  previousSearches.map(({ id, IconComponent, label }) => (
                     <button
                       key={id}
                       type="button"
-                      className="flex items-center justify-center gap-2 rounded-full border border-border bg-card/50 backdrop-blur-md hover:border-primary/50 hover:bg-card transition-all px-4 py-2 text-sm font-medium text-text-base"
+                      className="flex items-center justify-center gap-2 rounded-full border border-border bg-card/50 backdrop-blur-md hover:border-primary/50 hover:bg-card transition-all px-4 py-2.5 text-xs font-bold text-text-base uppercase tracking-wider"
                     >
-                      <span className="material-symbols-outlined text-[18px] text-primary">{icon}</span>
-                      {label}
+                      <IconComponent className="w-4 h-4 text-primary shrink-0" />
+                      <span>{label}</span>
                     </button>
                   ))}
               </div>
@@ -278,16 +286,17 @@ export default function DashboardPage() {
              * which shows specialization, chamber address, phone, and contact details.
              * "Manage" links to /dashboard/saved_items for the full saved items page.
              */}
-            <section>
-              <div className="flex items-center justify-between mb-6">
+            <section className="space-y-4">
+              <div className="flex items-center justify-between">
                 <h2 className="text-lg font-bold flex items-center gap-2">
-                  <span className="material-symbols-outlined text-primary">favorite</span>
-                  Saved Doctors
+                  <Heart className="w-5 h-5 text-primary" />
+                  <span>Saved Doctors</span>
                 </h2>
-                <Link href="/dashboard/saved_items" className="text-sm font-medium text-primary hover:underline">
+                <Link href="/dashboard/saved_items" className="text-xs font-bold text-primary hover:underline uppercase tracking-wider">
                   Manage
                 </Link>
               </div>
+              
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {loading &&
                   Array.from({ length: 3 }).map((_, index) => (
@@ -298,7 +307,7 @@ export default function DashboardPage() {
                   ))}
 
                 {!loading && savedDoctors.length === 0 && (
-                  <div className="col-span-full rounded-xl border border-dashed border-border p-6 text-sm text-text-muted">
+                  <div className="col-span-full rounded-xl border border-dashed border-border p-6 text-sm text-text-muted font-semibold">
                     No saved doctors yet. Save doctors from results to see them here.
                   </div>
                 )}
@@ -309,9 +318,6 @@ export default function DashboardPage() {
                       key={doc.bookmarkId}
                       className="bg-card border border-border rounded-xl p-5 shadow-sm hover:shadow-lg hover:border-primary/30 transition-all relative group"
                     >
-                      <button className="absolute top-4 right-4 text-error opacity-0 group-hover:opacity-100 transition-opacity" type="button" aria-label="Saved doctor">
-                        <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>favorite</span>
-                      </button>
                       <div className="flex items-start gap-4">
                         <div
                           className="w-14 h-14 rounded-full bg-cover bg-center border border-border shrink-0"
@@ -319,21 +325,21 @@ export default function DashboardPage() {
                         />
                         <div>
                           <h3 className="font-bold text-text-base text-base">{doc.name}</h3>
-                          <p className="text-primary text-sm font-medium">{doc.specialty}</p>
-                          <div className="flex items-center gap-1 mt-1 text-text-muted text-xs">
-                            <span className="material-symbols-outlined text-[14px]">verified</span>
-                            <span className="font-medium text-text-sub">Saved profile</span>
+                          <p className="text-primary text-xs font-bold uppercase tracking-wider mt-0.5">{doc.specialty}</p>
+                          <div className="flex items-center gap-1.5 mt-2 text-text-muted text-xs font-bold uppercase tracking-wider">
+                            <ShieldCheck className="w-4 h-4 text-emerald-500" />
+                            <span className="text-text-sub">Saved profile</span>
                           </div>
                         </div>
                       </div>
                       <div className="mt-4 pt-4 border-t border-border flex items-center justify-between">
-                        <div className="flex items-center gap-1 text-text-muted text-sm">
-                          <span className="material-symbols-outlined text-[16px]">location_on</span>
+                        <div className="flex items-center gap-1 text-text-muted text-xs font-bold uppercase tracking-wider">
+                          <MapPin className="w-3.5 h-3.5 text-primary shrink-0" />
                           <span>{doc.location}</span>
                         </div>
                         <Link
                           href={`/doctors/${doc.doctorId}`}
-                          className="text-sm font-bold text-white bg-primary hover:bg-primary-hover shadow-[0_0_15px_rgba(20,184,166,0.3)] rounded-lg px-4 py-2 transition-all"
+                          className="text-xs font-bold uppercase tracking-wider text-white bg-primary hover:bg-primary-hover shadow-md rounded-lg px-4 py-2 transition-all"
                         >
                           Book
                         </Link>
@@ -343,19 +349,19 @@ export default function DashboardPage() {
               </div>
             </section>
 
-            <section>
-              <div className="flex items-center justify-between mb-4">
+            <section className="space-y-4">
+              <div className="flex items-center justify-between">
                 <h2 className="text-lg font-bold flex items-center gap-2">
-                  <span className="material-symbols-outlined text-primary">group_add</span>
-                  Add Doctors
+                  <UserPlus className="w-5 h-5 text-primary" />
+                  <span>Verify Physicians</span>
                 </h2>
-                <Link href="/dashboard/doctor_add" className="text-sm font-medium text-primary hover:underline">
+                <Link href="/dashboard/doctor_add" className="text-xs font-bold text-primary hover:underline uppercase tracking-wider">
                   Add Doctor
                 </Link>
               </div>
-              <div className="rounded-xl border border-border bg-card/60 p-4">
-                <p className="text-sm text-text-muted">
-                  Add and manage verified doctor profiles so they appear in patient matches and recommendations.
+              <div className="rounded-xl border border-border bg-card/60 p-5 shadow-sm">
+                <p className="text-xs text-text-muted leading-relaxed font-semibold">
+                  Add and manage verified doctor profiles so they appear in patient matches and recommendations. Verified physician entries are immediately run against triage models.
                 </p>
               </div>
             </section>

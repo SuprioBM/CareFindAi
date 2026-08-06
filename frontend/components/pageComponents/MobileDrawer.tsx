@@ -12,11 +12,13 @@ export default function MobileDrawer({
   onClose,
   navLinks,
   currentPath,
+  unseenCount,
 }: {
   open: boolean;
   onClose: () => void;
   navLinks: NavLink[];
   currentPath?: string | null;
+  unseenCount?: number;
 }) {
   const { user, logout, loading } = useAuth();
   useLockBodyScroll(open);
@@ -78,9 +80,14 @@ export default function MobileDrawer({
               key={link.name}
               href={link.href}
               onClick={onClose}
-              className={`text-sm font-semibold py-2 rounded-md ${currentPath === link.href ? "text-primary" : "text-text-sub hover:text-primary"}`}
+              className={`text-sm font-semibold py-2 rounded-md flex items-center justify-between ${currentPath === link.href ? "text-primary" : "text-text-sub hover:text-primary"}`}
             >
-              {link.name}
+              <span>{link.name}</span>
+              {link.href === "/prescription-analyzer" && unseenCount && unseenCount > 0 ? (
+                <span className="bg-primary text-white text-[10px] font-black px-1.5 py-0.5 rounded-full shrink-0 flex items-center justify-center">
+                  {unseenCount}
+                </span>
+              ) : null}
             </Link>
           ))}
         </nav>

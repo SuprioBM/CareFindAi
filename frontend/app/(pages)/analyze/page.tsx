@@ -4,6 +4,21 @@ import { useEffect, useState, useRef } from 'react';
 import { apiFetch } from '@/lib/api';
 import { AnalysisResponse } from '@/types/types';
 import SymptomAnalysisResult from '@/components/pageComponents/SymptomAnalysisResult';
+import { 
+  User, 
+  Activity, 
+  Brain, 
+  Clock, 
+  Send, 
+  CheckCircle, 
+  RefreshCw, 
+  Sliders, 
+  FileText, 
+  ShieldAlert, 
+  Sparkles,
+  ArrowRight,
+  Info
+} from "lucide-react";
 
 type Message = {
   role: 'user' | 'assistant';
@@ -196,55 +211,60 @@ export default function SymptomsPage() {
   } : null;
 
   return (
-    <div className="bg-surface text-text-base min-h-screen">
-      <div className="max-w-[1100px] mx-auto px-4 py-8">
+    <div className="bg-surface text-text-base min-h-screen transition-colors duration-300">
+      <div className="max-w-[1100px] mx-auto px-6 py-12 space-y-10">
         
         {/* Header */}
-        <div className="px-4 py-4 mb-6 flex flex-col gap-2 border-b border-primary/10">
-          <h1 className="text-4xl font-black leading-tight tracking-tight text-primary">
-            Symptom Triage Analyzer
+        <div className="flex flex-col gap-2 border-b border-border pb-6">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-bold uppercase tracking-wider w-max">
+            <Brain className="w-3.5 h-3.5" />
+            <span>Clinical Symptom Triage</span>
+          </div>
+          <h1 className="text-3xl md:text-5xl font-black tracking-tight text-text-base">
+            Symptom Triage Navigator
           </h1>
-          <p className="text-text-muted text-base leading-normal">
-            Explain your health concerns in natural language. Our clinical system evaluates symptoms, severity, and directs you to Dhaka's optimal medical specialists.
+          <p className="text-text-muted text-sm md:text-base max-w-2xl leading-normal">
+            Explain your health concerns in plain, natural language. Our clinical mapping system evaluates symptom parameters, identifies distress indices, and directs you to validated specialists in Bangladesh.
           </p>
         </div>
 
         {error && (
-          <div className="mx-4 mb-6 rounded-xl border border-red-500/20 bg-red-500/5 px-4 py-3 text-sm text-red-500 flex items-center gap-2">
-            <span className="material-symbols-outlined text-[18px]">error</span>
-            {error}
+          <div className="rounded-xl border border-red-500/20 bg-red-500/5 px-4 py-3.5 text-sm text-red-500 flex items-center gap-2">
+            <ShieldAlert className="w-5 h-5 shrink-0" />
+            <span>{error}</span>
           </div>
         )}
 
         {/* STEP 1: INTAKE SCREEN */}
         {step === 'intake' && (
-          <form onSubmit={handleStartTriage} className="grid grid-cols-1 md:grid-cols-3 gap-6 px-4">
+          <form onSubmit={handleStartTriage} className="grid grid-cols-1 md:grid-cols-3 gap-8">
             
             {/* Left side: Demographics intake */}
-            <div className="md:col-span-1 bg-card border border-primary/10 rounded-2xl p-6 shadow-sm flex flex-col gap-5">
-              <h2 className="text-xl font-bold flex items-center gap-2 text-primary border-b border-primary/10 pb-3">
-                <span className="material-symbols-outlined">person</span> Demographics
+            <div className="md:col-span-1 bg-card border border-border rounded-2xl p-6 shadow-xl flex flex-col gap-5">
+              <h2 className="text-lg font-bold flex items-center gap-2 text-text-base border-b border-border pb-3">
+                <User className="w-5 h-5 text-primary" />
+                <span>Patient Intake Details</span>
               </h2>
               
               <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-semibold text-text-sub">Age</label>
+                <label className="text-xs font-bold text-text-muted uppercase tracking-wider">Age</label>
                 <input
                   type="number"
                   required
                   placeholder="e.g. 28"
                   value={age}
                   onChange={(e) => setAge(e.target.value)}
-                  className="rounded-xl border border-primary/20 bg-surface focus:outline-none focus:ring-2 focus:ring-primary p-3 text-sm font-medium"
+                  className="rounded-xl border border-border bg-surface focus:outline-none focus:border-primary p-3 text-sm font-semibold text-text-base"
                 />
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-semibold text-text-sub">Gender</label>
+                <label className="text-xs font-bold text-text-muted uppercase tracking-wider">Gender</label>
                 <select
                   required
                   value={gender}
                   onChange={(e) => setGender(e.target.value)}
-                  className="rounded-xl border border-primary/20 bg-surface focus:outline-none focus:ring-2 focus:ring-primary p-3 text-sm font-medium"
+                  className="rounded-xl border border-border bg-surface focus:outline-none focus:border-primary p-3 text-sm font-semibold text-text-base"
                 >
                   <option value="">Select Gender</option>
                   <option value="male">Male</option>
@@ -254,12 +274,12 @@ export default function SymptomsPage() {
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-semibold text-text-sub">Duration of Symptoms</label>
+                <label className="text-xs font-bold text-text-muted uppercase tracking-wider">Duration of Symptoms</label>
                 <select
                   required
                   value={duration}
                   onChange={(e) => setDuration(e.target.value)}
-                  className="rounded-xl border border-primary/20 bg-surface focus:outline-none focus:ring-2 focus:ring-primary p-3 text-sm font-medium"
+                  className="rounded-xl border border-border bg-surface focus:outline-none focus:border-primary p-3 text-sm font-semibold text-text-base"
                 >
                   <option value="">Select Duration</option>
                   <option value="few_hours">A few hours</option>
@@ -273,32 +293,35 @@ export default function SymptomsPage() {
             </div>
 
             {/* Right side: Describe symptoms */}
-            <div className="md:col-span-2 bg-card border border-primary/10 rounded-2xl p-6 shadow-sm flex flex-col justify-between gap-5">
+            <div className="md:col-span-2 bg-card border border-border rounded-2xl p-6 shadow-xl flex flex-col justify-between gap-6">
               <div className="flex flex-col gap-4">
-                <h2 className="text-xl font-bold flex items-center gap-2 text-primary border-b border-primary/10 pb-3">
-                  <span className="material-symbols-outlined">medical_information</span> Medical Concern
+                <h2 className="text-lg font-bold flex items-center gap-2 text-text-base border-b border-border pb-3">
+                  <FileText className="w-5 h-5 text-primary" />
+                  <span>Symptom Description</span>
                 </h2>
-                <p className="text-sm text-text-muted">
-                  Provide a detailed description of how you are feeling (e.g. "I have a sharp headache behind my left eye and felt slightly nauseous this morning").
+                <p className="text-xs text-text-muted leading-relaxed font-semibold">
+                  Provide a detailed description of how you are feeling (e.g., "I have a sharp headache behind my left eye and felt slightly nauseous this morning").
                 </p>
                 <textarea
                   required
                   value={primarySymptom}
                   onChange={(e) => setPrimarySymptom(e.target.value)}
                   placeholder="Describe your symptoms in your own words..."
-                  className="w-full min-h-[160px] rounded-xl border border-primary/20 bg-surface focus:outline-none focus:ring-2 focus:ring-primary p-4 text-base font-normal resize-none"
+                  className="w-full min-h-[160px] rounded-xl border border-border bg-surface focus:outline-none focus:border-primary p-4 text-sm font-medium resize-none text-text-base leading-relaxed"
                 />
               </div>
 
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full flex items-center justify-center rounded-xl h-12 bg-primary hover:bg-primary-hover disabled:opacity-70 disabled:cursor-not-allowed text-white text-base font-bold shadow-lg shadow-primary/30 transition-all hover:scale-[1.01]"
+                className="w-full flex items-center justify-center rounded-xl h-12 bg-primary hover:bg-primary-hover disabled:opacity-70 disabled:cursor-not-allowed text-white text-sm font-bold uppercase tracking-wider shadow-lg shadow-primary/20 transition-all hover:scale-[1.01]"
               >
-                <span className="material-symbols-outlined mr-2">
-                  {loading ? 'hourglass_top' : 'auto_awesome'}
-                </span>
-                {loading ? 'Starting Analysis...' : 'Start Clinical Triage'}
+                {loading ? (
+                  <Activity className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Sparkles className="w-4 h-4 mr-2" />
+                )}
+                {loading ? 'Initiating Diagnostic Mapping...' : 'Start Clinical Triage'}
               </button>
             </div>
 
@@ -307,13 +330,13 @@ export default function SymptomsPage() {
 
         {/* STEP 2 & 3: ACTIVE CHAT SCREEN / RESULTS */}
         {(step === 'chat' || step === 'completed') && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 px-4">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             
             {/* Left Column: Chat + Results Box */}
             <div className="lg:col-span-2 flex flex-col gap-6">
               
               {/* Chat Thread Panel */}
-              <div className="bg-card border border-primary/10 rounded-2xl shadow-sm flex flex-col min-h-[500px] max-h-[650px] justify-between overflow-hidden">
+              <div className="bg-card border border-border rounded-2xl shadow-xl flex flex-col min-h-[500px] max-h-[650px] justify-between overflow-hidden">
                 
                 {/* Chat Messages */}
                 <div className="flex-1 overflow-y-auto p-6 space-y-4">
@@ -323,10 +346,10 @@ export default function SymptomsPage() {
                       className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
                     >
                       <div
-                        className={`max-w-[85%] rounded-2xl px-5 py-3 text-sm leading-relaxed shadow-sm ${
+                        className={`max-w-[85%] rounded-2xl px-5 py-3.5 text-sm leading-relaxed shadow-sm ${
                           msg.role === 'user'
-                            ? 'bg-primary text-white rounded-br-none'
-                            : 'bg-primary/5 text-text-base border border-primary/10 rounded-bl-none'
+                            ? 'bg-primary text-white rounded-br-none font-medium'
+                            : 'bg-surface text-text-base border border-border rounded-bl-none font-semibold'
                         }`}
                       >
                         <p>{msg.content}</p>
@@ -336,7 +359,7 @@ export default function SymptomsPage() {
 
                   {loading && (
                     <div className="flex justify-start">
-                      <div className="bg-primary/5 border border-primary/10 rounded-2xl rounded-bl-none px-5 py-4 space-y-1.5 max-w-[200px] animate-pulse">
+                      <div className="bg-surface border border-border rounded-2xl rounded-bl-none px-5 py-4 space-y-1.5 max-w-[200px] animate-pulse">
                         <div className="flex gap-1.5 justify-center items-center h-4">
                           <span className="w-2 h-2 rounded-full bg-primary/40 animate-bounce" style={{ animationDelay: '0ms' }} />
                           <span className="w-2 h-2 rounded-full bg-primary/40 animate-bounce" style={{ animationDelay: '150ms' }} />
@@ -349,7 +372,7 @@ export default function SymptomsPage() {
                 </div>
 
                 {/* Chat Input / Action Controls */}
-                <div className="p-4 border-t border-primary/10 bg-primary/[0.01] flex flex-col gap-3">
+                <div className="p-4 border-t border-border bg-surface/50 flex flex-col gap-3">
                   
                   {/* Render Quick-Action Option Buttons if provided by backend */}
                   {step === 'chat' && nextQuestionOptions.length > 0 && (
@@ -360,7 +383,7 @@ export default function SymptomsPage() {
                           type="button"
                           onClick={() => handleSendMessage(opt)}
                           disabled={loading}
-                          className="rounded-full px-5 py-2 text-xs font-bold uppercase tracking-wide bg-primary/10 hover:bg-primary/20 text-primary border border-primary/10 transition-colors"
+                          className="rounded-full px-5 py-2 text-xs font-bold uppercase tracking-wider bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 transition-colors"
                         >
                           {opt}
                         </button>
@@ -379,7 +402,7 @@ export default function SymptomsPage() {
                         }}
                         disabled={loading}
                         placeholder="Type your response here..."
-                        className="flex-1 rounded-xl border border-primary/20 bg-surface focus:outline-none focus:ring-2 focus:ring-primary px-4 py-3 text-sm"
+                        className="flex-1 rounded-xl border border-border bg-surface focus:outline-none focus:border-primary px-4 py-3 text-sm text-text-base font-semibold"
                       />
                       <button
                         type="button"
@@ -387,19 +410,19 @@ export default function SymptomsPage() {
                         disabled={loading || !inputText.trim()}
                         className="p-3 bg-primary text-white rounded-xl hover:bg-primary-hover disabled:opacity-50 transition-colors flex items-center justify-center"
                       >
-                        <span className="material-symbols-outlined text-[20px]">send</span>
+                        <Send className="w-5 h-5" />
                       </button>
                     </div>
                   ) : (
                     <div className="flex flex-col gap-3">
-                      <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-3 text-sm text-emerald-600 font-semibold flex items-center justify-center gap-2">
-                        <span className="material-symbols-outlined text-[20px]">check_circle</span>
-                        Clinical Triage Evaluation Complete
+                      <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-3 text-sm text-emerald-600 font-bold flex items-center justify-center gap-2">
+                        <CheckCircle className="w-5 h-5" />
+                        <span>Clinical Triage Evaluation Complete</span>
                       </div>
                       <button
                         type="button"
                         onClick={handleReset}
-                        className="w-full flex items-center justify-center rounded-xl h-11 bg-primary/10 hover:bg-primary/20 text-primary text-sm font-bold transition-colors"
+                        className="w-full flex items-center justify-center rounded-xl h-11 bg-primary/10 hover:bg-primary/20 border border-primary/20 text-primary text-sm font-bold uppercase tracking-wider transition-colors"
                       >
                         Start New Analysis
                       </button>
@@ -424,19 +447,20 @@ export default function SymptomsPage() {
             <div className="lg:col-span-1 flex flex-col gap-6">
               
               {/* Live Clinical Cockpit */}
-              <div className="bg-card border border-primary/10 rounded-2xl p-6 shadow-sm space-y-5">
-                <h3 className="text-lg font-bold flex items-center gap-2 text-primary border-b border-primary/10 pb-3">
-                  <span className="material-symbols-outlined">dashboard</span> Clinical Progress
+              <div className="bg-card border border-border rounded-2xl p-6 shadow-xl space-y-5">
+                <h3 className="text-base font-bold flex items-center gap-2 text-text-base border-b border-border pb-3">
+                  <Sliders className="w-4.5 h-4.5 text-primary" />
+                  <span>Clinical Cockpit</span>
                 </h3>
 
-                <div className="space-y-4">
+                <div className="space-y-4 font-semibold">
                   {/* Demographics Card */}
-                  <div className="bg-surface/50 border border-primary/5 rounded-xl p-3 flex justify-between text-xs font-semibold">
+                  <div className="bg-surface border border-border rounded-xl p-3 flex justify-between text-xs">
                     <div>
                       <span className="text-text-muted">Age: </span>
                       <span className="text-text-base">{clinicalState?.demographics?.age || 'N/A'}</span>
                     </div>
-                    <div className="border-l border-primary/10 h-4 mx-2" />
+                    <div className="border-l border-border h-4 mx-2" />
                     <div>
                       <span className="text-text-muted">Gender: </span>
                       <span className="text-text-base capitalize">{clinicalState?.demographics?.gender || 'N/A'}</span>
@@ -445,13 +469,13 @@ export default function SymptomsPage() {
 
                   {/* Identified Symptoms list */}
                   <div>
-                    <p className="text-xs font-bold text-text-muted uppercase tracking-wider mb-2">Identified Symptoms</p>
+                    <p className="text-[10px] font-bold text-text-muted uppercase tracking-wider mb-2">Identified Symptoms</p>
                     {clinicalState?.symptoms && clinicalState.symptoms.length > 0 ? (
                       <div className="flex flex-wrap gap-1.5">
                         {clinicalState.symptoms.map((sym: string) => (
                           <span
                             key={sym}
-                            className="bg-primary/10 text-primary border border-primary/5 rounded-full px-2.5 py-0.5 text-xs font-bold capitalize"
+                            className="bg-primary/10 text-primary border border-primary/20 rounded-lg px-2.5 py-1 text-xs font-bold capitalize"
                           >
                             {sym.replace(/_/g, ' ')}
                           </span>
@@ -464,13 +488,13 @@ export default function SymptomsPage() {
 
                   {/* Red flags triggers */}
                   <div>
-                    <p className="text-xs font-bold text-text-muted uppercase tracking-wider mb-2">Red Flags Evaluated</p>
+                    <p className="text-[10px] font-bold text-text-muted uppercase tracking-wider mb-2">Red Flags Evaluated</p>
                     {clinicalState?.redFlags && clinicalState.redFlags.length > 0 ? (
                       <div className="flex flex-wrap gap-1.5">
                         {clinicalState.redFlags.map((flag: string) => (
                           <span
                             key={flag}
-                            className="bg-red-500/10 text-red-500 border border-red-500/10 rounded-full px-2.5 py-0.5 text-xs font-bold capitalize"
+                            className="bg-red-500/10 text-red-500 border border-red-500/20 rounded-lg px-2.5 py-1 text-xs font-bold capitalize"
                           >
                             {flag.replace(/_/g, ' ')}
                           </span>

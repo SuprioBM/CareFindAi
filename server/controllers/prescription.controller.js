@@ -34,7 +34,8 @@ export const analyzePrescription = async (req, res) => {
       const jobRecord = await PrescriptionJob.create({
         jobId,
         userId: req.user.id,
-        status: "processing"
+        status: "processing",
+        image
       });
 
       try {
@@ -70,7 +71,8 @@ export const analyzePrescription = async (req, res) => {
     await PrescriptionJob.create({
       jobId,
       userId: req.user.id,
-      status: "pending"
+      status: "pending",
+      image
     });
 
     await prescriptionQueue.add(
@@ -193,7 +195,7 @@ export const getJobHistory = async (req, res) => {
     // Return all jobs for the current user ordered by newest first
     // Exclude large result payloads for efficiency
     const jobs = await PrescriptionJob.find({ userId: req.user.id })
-      .select("jobId status error createdAt completedAt")
+      .select("jobId status error createdAt completedAt image result viewedAt")
       .sort({ createdAt: -1 });
 
     return res.json({

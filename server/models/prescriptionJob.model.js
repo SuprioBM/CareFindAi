@@ -35,6 +35,10 @@ const prescriptionJobSchema = new mongoose.Schema(
       type: Date,
       default: null
     },
+    image: {
+      type: String,
+      default: null
+    },
     completedAt: {
       type: Date,
       default: null

@@ -160,6 +160,7 @@ export const startTriage = async (req, res) => {
         matchedSymptoms: rec.matchedSymptoms || [],
         canShowDoctors: rec.canShowDoctors,
         retrievalQuery: rec.specialist,
+        qaHistory: [],
       });
 
       await sessionService.saveSession(sessionId, session);
@@ -298,6 +299,11 @@ export const handleTriageMessage = async (req, res) => {
         matchedSymptoms: rec.matchedSymptoms || [],
         canShowDoctors: rec.canShowDoctors,
         retrievalQuery: rec.specialist,
+        qaHistory: (session.questionHistory || []).map((q) => ({
+          question: q.text || "",
+          answer: q.answer || "",
+          timestamp: q.timestamp || new Date()
+        })),
       });
 
       await sessionService.saveSession(sessionId, session);

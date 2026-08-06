@@ -16,8 +16,22 @@ export default function PrescriptionPollNotifier() {
   const { user } = useAuth();
   const [hasCheckedUnseen, setHasCheckedUnseen] = useState(false);
   
-  // Track already notified jobIds in the current page session to prevent duplicates
+  // Track already notified jobIds in the current page session & cache to prevent duplicates
   const notifiedRefs = useRef<Set<string>>(new Set());
+
+  // Load notified jobs from localStorage
+  const getToastedJobs = (): Set<string> => {
+    if (typeof window === 'undefined') return new Set();
+    const val = localStorage.getItem('carefind_toasted_jobs');
+    return val ? new Set(JSON.parse(val)) : new Set();
+  };
+
+  const addToastedJob = (jobId: string) => {
+    if (typeof window === 'undefined') return;
+    const current = getToastedJobs();
+    current.add(jobId);
+    localStorage.setItem('carefind_toasted_jobs', JSON.stringify(Array.from(current)));
+  };
 
   // 1. Initial unseen check on login / mount
   useEffect(() => {
@@ -29,9 +43,14 @@ export default function PrescriptionPollNotifier() {
         if (!res.ok) return;
 
         const data = await res.json();
+        const cacheToasted = getToastedJobs();
+        
         if (data.jobs && data.jobs.length > 0) {
-          // Filter out jobs that we have already notified in this session
-          const unnotifiedJobs = data.jobs.filter((j: any) => !notifiedRefs.current.has(j.jobId));
+          // Filter out jobs that we have already notified in this session or in cache
+          const unnotifiedJobs = data.jobs.filter((j: any) => 
+            !notifiedRefs.current.has(j.jobId) && !cacheToasted.has(j.jobId)
+          );
+
           if (unnotifiedJobs.length === 0) {
             setHasCheckedUnseen(true);
             return;
@@ -41,9 +60,10 @@ export default function PrescriptionPollNotifier() {
           if (count === 1) {
             const job = unnotifiedJobs[0];
             notifiedRefs.current.add(job.jobId);
+            addToastedJob(job.jobId);
             
-            toast.info(`🔔 Your prescription analysis is ready.`, {
-              description: `Ready to review. Click below to load.`,
+            toast.info(`🔔 1 Report Awaiting Review`, {
+              description: `Click below to review your completed prescription analysis.`,
               action: {
                 label: "View Report",
                 onClick: () => {
@@ -53,11 +73,13 @@ export default function PrescriptionPollNotifier() {
               duration: 15000
             });
           } else {
-            // Mark all as notified
-            unnotifiedJobs.forEach((j: any) => notifiedRefs.current.add(j.jobId));
+            unnotifiedJobs.forEach((j: any) => {
+              notifiedRefs.current.add(j.jobId);
+              addToastedJob(j.jobId);
+            });
             
-            toast.info(`🔔 You have ${count} completed prescription analyses waiting.`, {
-              description: `Click to view your history and reports.`,
+            toast.info(`🔔 ${count} Reports Awaiting Review`, {
+              description: `Click below to review your completed prescription analyses.`,
               action: {
                 label: "Open Analyzer",
                 onClick: () => {
@@ -85,34 +107,40 @@ export default function PrescriptionPollNotifier() {
     }
   }, [user]);
 
-  // 2. Local active jobs polling
+  // 2. Active jobs polling from database history directly (multi-device robust)
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (!user) return;
 
     const pollJobs = async () => {
       try {
-        const jobsStr = localStorage.getItem('carefind_prescription_jobs');
-        if (!jobsStr) return;
+        // Fetch all jobs to inspect statuses
+        const res = await apiFetch('/prescription/history');
+        if (!res.ok) return;
 
-        let jobs: JobItem[] = JSON.parse(jobsStr);
-        // Only poll jobs that are still pending or processing
-        const activeJobs = jobs.filter(j => j.status === 'pending' || j.status === 'processing');
+        const data = await res.json();
+        const historyList = data.jobs || [];
+
+        // Filter active jobs in history
+        const activeJobs = historyList.filter((j: any) => j.status === 'pending' || j.status === 'processing');
         if (activeJobs.length === 0) return;
 
-        let updated = false;
+        const cacheToasted = getToastedJobs();
+        let updatedLocal = false;
 
         await Promise.all(
-          activeJobs.map(async (job) => {
+          activeJobs.map(async (job: any) => {
             try {
-              const res = await apiFetch(`/prescription/job/${job.jobId}/status`);
-              if (!res.ok) return;
+              // Retrieve fresh status from server
+              const statusRes = await apiFetch(`/prescription/job/${job.jobId}/status`);
+              if (!statusRes.ok) return;
 
-              const data = await res.json();
+              const statusData = await statusRes.json();
               
-              if (data.status === 'completed') {
-                // Only show toast if not already notified
-                if (!notifiedRefs.current.has(job.jobId)) {
+              if (statusData.status === 'completed') {
+                // Trigger completed notification if not already notified
+                if (!notifiedRefs.current.has(job.jobId) && !cacheToasted.has(job.jobId)) {
                   notifiedRefs.current.add(job.jobId);
+                  addToastedJob(job.jobId);
                   
                   toast.success('Prescription scan complete! 🎉', {
                     description: `AI has completed the analysis report.`,
@@ -125,46 +153,49 @@ export default function PrescriptionPollNotifier() {
                     duration: 12000
                   });
                 }
-
-                // Update state in localStorage
-                job.status = 'completed';
-                updated = true;
-              } else if (data.status === 'failed') {
-                // Only show toast if not already notified
-                if (!notifiedRefs.current.has(job.jobId)) {
+                updatedLocal = true;
+              } else if (statusData.status === 'failed') {
+                // Trigger failed notification if not already notified
+                if (!notifiedRefs.current.has(job.jobId) && !cacheToasted.has(job.jobId)) {
                   notifiedRefs.current.add(job.jobId);
+                  addToastedJob(job.jobId);
 
                   toast.error('Prescription analysis failed ❌', {
-                    description: data.error || 'Unknown error occurred.',
+                    description: statusData.error || 'Unknown error occurred.',
                     duration: 8000
                   });
                 }
-
-                job.status = 'failed';
-                updated = true;
-              } else if (data.status !== job.status) {
-                job.status = data.status;
-                updated = true;
+                updatedLocal = true;
               }
             } catch (err) {
-              console.error(`Error polling job status for ${job.jobId}:`, err);
+              console.error(`Error polling active job ${job.jobId}:`, err);
             }
           })
         );
 
-        if (updated) {
-          // Synchronize localStorage with new status states
-          const currentJobs: JobItem[] = JSON.parse(localStorage.getItem('carefind_prescription_jobs') || '[]');
-          const synchronizedJobs = currentJobs.map(cj => {
-            const match = jobs.find(j => j.jobId === cj.jobId);
-            return match ? match : cj;
-          });
-          
-          localStorage.setItem('carefind_prescription_jobs', JSON.stringify(synchronizedJobs));
+        if (updatedLocal) {
+          // Synchronize localStorage cache for consistency
+          const currentJobsStr = localStorage.getItem('carefind_prescription_jobs');
+          if (currentJobsStr) {
+            const currentJobs: JobItem[] = JSON.parse(currentJobsStr);
+            const syncList = currentJobs.map(cj => {
+              // Find matching active job update
+              const match = activeJobs.find((j: any) => j.jobId === cj.jobId);
+              if (match) {
+                // Update local storage status
+                return {
+                  ...cj,
+                  status: match.status === 'processing' || match.status === 'pending' ? 'completed' : match.status
+                };
+              }
+              return cj;
+            });
+            localStorage.setItem('carefind_prescription_jobs', JSON.stringify(syncList));
+          }
         }
 
       } catch (error) {
-        console.error('PrescriptionPollNotifier active polling error:', error);
+        console.error('PrescriptionPollNotifier background error:', error);
       }
     };
 
@@ -172,7 +203,7 @@ export default function PrescriptionPollNotifier() {
     const interval = setInterval(pollJobs, 8000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [user]);
 
   return null;
 }

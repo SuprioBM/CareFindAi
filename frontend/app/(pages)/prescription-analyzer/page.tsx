@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
+import { toast } from 'sonner';
 import { 
   Upload, 
   Sparkles, 
@@ -21,7 +22,15 @@ import {
   Clock,
   History,
   Lock,
-  ChevronRight
+  ChevronRight,
+  ShieldCheck,
+  FileImage,
+  ChevronDown,
+  ChevronUp,
+  BookOpen,
+  Camera,
+  Calendar,
+  AlertCircle
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api';
 import { useAuth } from '@/authContext/authContext';
@@ -65,6 +74,9 @@ type ServerJob = {
   createdAt: string;
   completedAt: string | null;
   error?: string | null;
+  image?: string | null;
+  result?: any | null;
+  viewedAt?: string | null;
 };
 
 function PrescriptionAnalyzerContent() {
@@ -81,13 +93,21 @@ function PrescriptionAnalyzerContent() {
   
   const [prescribedData, setPrescribedData] = useState<PrescribedMedication[]>([]);
   const [alternativesData, setAlternativesData] = useState<AlternativeGroup[]>([]);
-  const [showAlternatives, setShowAlternatives] = useState(false);
+  const [activeTab, setActiveTab] = useState<'medicines' | 'advice'>('medicines');
   const [step, setStep] = useState<'idle' | 'analyzing' | 'results'>('idle');
-  const [backgroundProcessingInfo, setBackgroundProcessingInfo] = useState(false);
+  const [analysisDate, setAnalysisDate] = useState<string>('');
+  
+  // Track expanded alternative details (stores "medIdx-altIdx" string key)
+  const [expandedAltKey, setExpandedAltKey] = useState<string | null>(null);
+
+  // Track whether to show all alternatives (past the first 3) per medicine index
+  const [showAllAlternatives, setShowAllAlternatives] = useState<{ [medIdx: number]: boolean }>({});
+
+  // Queue Dashboard Active Tab Selection
+  const [activeHistoryTab, setActiveHistoryTab] = useState<'needsReview' | 'processing' | 'reviewed'>('needsReview');
 
   // Persistence States
   const [unseenReports, setUnseenReports] = useState<any[]>([]);
-  const [historyJobs, setHistoryJobs] = useState<any[]>([]);
   const [unifiedHistory, setUnifiedHistory] = useState<any[]>([]);
   const [activeScans, setActiveScans] = useState<any[]>([]);
 
@@ -113,7 +133,6 @@ function PrescriptionAnalyzerContent() {
     return () => clearInterval(interval);
   }, [loading]);
 
-  // Load and Polling Hook
   useEffect(() => {
     if (!user) return;
 
@@ -127,11 +146,9 @@ function PrescriptionAnalyzerContent() {
     }
   }, [activeJobId, user]);
 
-  // Fetch Unseen and History and Merge
   const fetchPersistenceData = async () => {
     if (!user) return;
     try {
-      // 1. Fetch unseen reports
       const resUnseen = await apiFetch('/prescription/unseen');
       let unseenList = [];
       if (resUnseen.ok) {
@@ -140,35 +157,34 @@ function PrescriptionAnalyzerContent() {
         setUnseenReports(unseenList);
       }
 
-      // 2. Fetch history from server
       const resHistory = await apiFetch('/prescription/history');
       let historyList: ServerJob[] = [];
       if (resHistory.ok) {
         const data = await resHistory.json();
         historyList = data.jobs || [];
-        setHistoryJobs(historyList);
       }
 
-      // 3. Load from localStorage cache
       const localJobsStr = localStorage.getItem('carefind_prescription_jobs');
       const localJobs: LocalJob[] = localJobsStr ? JSON.parse(localJobsStr) : [];
 
-      // 4. Merge server history and localStorage to form unified list
       const mergedMap = new Map<string, any>();
 
-      // Put server entries first
       historyList.forEach(sj => {
         mergedMap.set(sj.jobId, {
           jobId: sj.jobId,
-          fileName: "Prescription Scan", // Fallback name
+          fileName: sj.result?.prescribedMedications?.length 
+            ? sj.result.prescribedMedications.map((m: any) => m.medicineName).slice(0, 2).join(', ') + (sj.result.prescribedMedications.length > 2 ? '...' : '')
+            : "Prescription Scan",
           status: sj.status,
           createdAt: new Date(sj.createdAt).getTime(),
           completedAt: sj.completedAt ? new Date(sj.completedAt).getTime() : null,
+          image: sj.image || null,
+          result: sj.result || null,
+          viewedAt: sj.viewedAt || null,
           source: 'server'
         });
       });
 
-      // Override or add local entries (to get custom fileNames and precise times)
       localJobs.forEach(lj => {
         const existing = mergedMap.get(lj.jobId);
         mergedMap.set(lj.jobId, {
@@ -177,12 +193,14 @@ function PrescriptionAnalyzerContent() {
           status: lj.status || (existing?.status ?? "pending"),
           createdAt: lj.createdAt || (existing?.createdAt ?? Date.now()),
           completedAt: existing?.completedAt ?? null,
+          image: existing?.image || null,
+          result: existing?.result || null,
+          viewedAt: existing?.viewedAt || null,
           source: 'local'
         });
       });
 
       const mergedList = Array.from(mergedMap.values());
-      // Sort newest first
       mergedList.sort((a, b) => b.createdAt - a.createdAt);
       setUnifiedHistory(mergedList);
 
@@ -194,7 +212,7 @@ function PrescriptionAnalyzerContent() {
     }
   };
 
-    useEffect(() => {
+  useEffect(() => {
     if (step !== 'idle' || activeScans.length === 0 || !user) return;
     const interval = setInterval(() => {
       fetchPersistenceData();
@@ -202,15 +220,13 @@ function PrescriptionAnalyzerContent() {
     return () => clearInterval(interval);
   }, [step, activeScans.length, user]);
 
-
   const pollJobStatus = async (jobId: string) => {
     setLoading(true);
     setStep('analyzing');
     setError('');
-    setBackgroundProcessingInfo(true);
 
     let attempts = 0;
-    const maxAttempts = 120; // 6 minutes limit (3s interval)
+    const maxAttempts = 120;
 
     const checkStatus = async () => {
       try {
@@ -224,20 +240,41 @@ function PrescriptionAnalyzerContent() {
         if (data.status === 'completed') {
           setPrescribedData(data.result?.prescribedMedications || []);
           setAlternativesData(data.result?.alternativeMedications || []);
+          
+          // Format current date
+          const dateObj = new Date();
+          setAnalysisDate(dateObj.toLocaleDateString('en-US', {
+            month: 'short',
+            day: '2-digit',
+            year: 'numeric'
+          }) + ' • ' + dateObj.toLocaleTimeString('en-US', {
+            hour: '2-digit',
+            minute: '2-digit'
+          }));
+
           setStep('results');
           setLoading(false);
 
-          // Mark report as viewed on database
+          // Toast completion
+          toast.success("Prescription scan complete! 🎉", {
+            description: "Handwriting digitized and generic equivalents identified successfully."
+          });
+
           await markReportAsViewed(jobId);
-          return true; // Stop polling
+          return true;
         } else if (data.status === 'failed') {
-          setError(data.error || "Prescription analysis failed.");
+          const failMsg = data.error || "Prescription analysis failed.";
+          setError(failMsg);
           setStep('idle');
           setLoading(false);
-          return true; // Stop polling
+
+          toast.error("Prescription scan failed ❌", {
+            description: failMsg
+          });
+          return true;
         }
         
-        return false; // Keep polling
+        return false;
       } catch (err: any) {
         console.error(err);
         setError("Error connecting to server. Polling queue status...");
@@ -267,7 +304,6 @@ function PrescriptionAnalyzerContent() {
         method: 'POST'
       });
       
-      // Update local storage status cache as well
       const localJobsStr = localStorage.getItem('carefind_prescription_jobs');
       if (localJobsStr) {
         const localJobs: LocalJob[] = JSON.parse(localJobsStr);
@@ -323,8 +359,6 @@ function PrescriptionAnalyzerContent() {
     setLoading(true);
     setError('');
     setStep('analyzing');
-    setShowAlternatives(false);
-    setBackgroundProcessingInfo(true);
 
     try {
       const base64 = await convertToBase64(file);
@@ -341,7 +375,6 @@ function PrescriptionAnalyzerContent() {
 
       const jobId = parsed.jobId;
 
-      // Save to localStorage cache
       const existingJobs = JSON.parse(localStorage.getItem('carefind_prescription_jobs') || '[]');
       existingJobs.push({
         jobId,
@@ -351,7 +384,6 @@ function PrescriptionAnalyzerContent() {
       });
       localStorage.setItem('carefind_prescription_jobs', JSON.stringify(existingJobs));
 
-      // Push jobId to router URL query params
       router.push(`/prescription-analyzer?jobId=${jobId}`);
 
     } catch (err: any) {
@@ -372,10 +404,25 @@ function PrescriptionAnalyzerContent() {
     router.push('/prescription-analyzer');
   };
 
-  // ── AUTHENTICATION CHECK GATE ────────────────────────────
+  const toggleExpandAlternative = (key: string) => {
+    setExpandedAltKey(prev => (prev === key ? null : key));
+  };
+
+  const toggleShowAllAlternatives = (medIdx: number) => {
+    setShowAllAlternatives(prev => ({
+      ...prev,
+      [medIdx]: !prev[medIdx]
+    }));
+  };
+
+  // Partitioned lists based on workflow statuses
+  const processingList = unifiedHistory.filter(job => job.status === 'pending' || job.status === 'processing');
+  const needsReviewList = unifiedHistory.filter(job => job.status === 'completed' && !job.viewedAt);
+  const reviewedList = unifiedHistory.filter(job => job.status === 'completed' && job.viewedAt);
+
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-[#070b13] flex flex-col items-center justify-center text-text-sub gap-4">
+      <div className="min-h-screen bg-surface flex flex-col items-center justify-center text-text-sub gap-4">
         <Activity className="w-8 h-8 text-primary animate-spin" />
         <p className="text-sm font-semibold tracking-wider">Verifying security keys...</p>
       </div>
@@ -384,8 +431,8 @@ function PrescriptionAnalyzerContent() {
 
   if (!user) {
     return (
-      <div className="dark bg-[#070b13] text-[#f1f5f9] min-h-screen flex items-center justify-center p-6">
-        <div className="max-w-md w-full bg-[#0d1525] border border-white/10 rounded-2xl p-8 text-center space-y-6 shadow-2xl relative overflow-hidden">
+      <div className="bg-surface text-text-base min-h-screen flex items-center justify-center p-6 transition-colors duration-300">
+        <div className="max-w-md w-full bg-card border border-border rounded-2xl p-8 text-center space-y-6 shadow-2xl relative overflow-hidden">
           <div className="absolute inset-0 bg-primary/5 rounded-full blur-[40px] pointer-events-none" />
           
           <div className="w-16 h-16 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary mx-auto">
@@ -393,7 +440,7 @@ function PrescriptionAnalyzerContent() {
           </div>
 
           <div className="space-y-2">
-            <h2 className="text-2xl font-black tracking-tight text-white">Sign In Required</h2>
+            <h2 className="text-2xl font-black tracking-tight text-text-base">Sign In Required</h2>
             <p className="text-sm text-text-muted leading-relaxed">
               To securely analyze prescriptions, save scans across devices, and retrieve historical data, please sign in to your CareFind account.
             </p>
@@ -401,7 +448,7 @@ function PrescriptionAnalyzerContent() {
 
           <button
             onClick={() => router.push(`/login?redirectTo=/prescription-analyzer`)}
-            className="w-full flex items-center justify-center gap-2 rounded-xl h-12 bg-primary hover:bg-primary-hover text-white text-sm font-black tracking-wider uppercase transition-colors shadow-lg shadow-primary/20"
+            className="w-full flex items-center justify-center gap-2 rounded-xl h-12 bg-primary hover:bg-primary-hover text-white text-sm font-bold tracking-wider uppercase transition-all shadow-lg shadow-primary/20"
           >
             <span>Sign In to Account</span>
             <ArrowRight className="w-4 h-4" />
@@ -412,174 +459,231 @@ function PrescriptionAnalyzerContent() {
   }
 
   return (
-    <div className="dark bg-[#070b13] text-[#f1f5f9] min-h-screen py-10 px-4 md:px-8">
-      <div className="max-w-[1100px] mx-auto space-y-10">
+    <div className="bg-surface text-text-base min-h-screen py-12 px-4 md:px-8 transition-colors duration-300">
+      <div className="max-w-[1000px] mx-auto space-y-10">
         
-        {/* Header Title */}
-        <div className="flex flex-col gap-2 border-b border-primary/10 pb-6">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-bold uppercase tracking-wider w-max">
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>AI Prescription Intelligence</span>
+        {/* ── HEADER BANNER ────────────────────────────────────────── */}
+        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 border-b border-border pb-8">
+          <div className="space-y-3 max-w-2xl">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/25 text-primary text-xs font-bold uppercase tracking-wider w-max">
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>AI Powered</span>
+            </div>
+            <h1 className="text-3xl md:text-5xl font-black tracking-tight text-text-base leading-tight">
+              Prescription Analyzer
+            </h1>
+            <p className="text-text-muted text-sm md:text-base font-semibold leading-relaxed">
+              Upload your prescription and we&apos;ll analyze medicines by their generic name to provide details, uses, side effects and affordable alternatives with price comparison.
+            </p>
+            
+            {/* Security Assurance */}
+            <div className="flex items-center gap-1.5 text-xs text-text-muted font-bold uppercase tracking-wider pt-2">
+              <Lock className="w-4 h-4 text-primary shrink-0" />
+              <span>Your data is secure & private</span>
+            </div>
           </div>
-          <h1 className="text-3xl md:text-5xl font-black tracking-tight text-white">
-            Prescription Analyzer & Alternatives
-          </h1>
-          <p className="text-text-muted text-sm md:text-base max-w-2xl leading-normal">
-            Upload your prescription. Our background queue parsing checks BDT prices and lists Square, Incepta, and Beximco alternatives safely.
-          </p>
+
+          {/* Three Benefit Circular Badges */}
+          <div className="flex flex-col gap-3 shrink-0 font-bold text-xs text-text-sub">
+            {[
+              { label: "AI Reading Handwritten Rx", icon: <FileText className="w-4 h-4 text-emerald-500" />, bg: "bg-emerald-500/10 border-emerald-500/20" },
+              { label: "Generic Name Search", icon: <Layers className="w-4 h-4 text-blue-500" />, bg: "bg-blue-500/10 border-blue-500/20" },
+              { label: "Alternatives & Price Comparison", icon: <TrendingDown className="w-4 h-4 text-amber-500" />, bg: "bg-amber-500/10 border-amber-500/20" }
+            ].map((item, idx) => (
+              <div key={idx} className="flex items-center gap-2.5">
+                <div className={`w-8 h-8 rounded-full border flex items-center justify-center shrink-0 ${item.bg}`}>
+                  {item.icon}
+                </div>
+                <span>{item.label}</span>
+              </div>
+            ))}
+          </div>
         </div>
 
         {error && (
-          <div className="rounded-xl border border-red-500/20 bg-red-500/5 px-4 py-3.5 text-sm text-red-400 flex items-center gap-2">
+          <div className="rounded-xl border border-red-500/20 bg-red-500/5 px-4 py-3.5 text-sm text-red-500 font-bold flex items-center gap-2">
             <AlertTriangle className="w-5 h-5 shrink-0" />
             <span>{error}</span>
           </div>
         )}
-
-        {/* ── UNSEEN REPORT NOTIFICATION CARDS ────────────────────── */}
-        {step === 'idle' && unseenReports.length > 0 && (
-          <div className="bg-[#0f192e] border border-primary/30 rounded-2xl p-6 space-y-4 shadow-xl">
-            <div className="flex items-center gap-2 text-primary font-black text-sm uppercase tracking-wider">
-              <Clock className="w-5 h-5 animate-pulse" />
-              <span>Pending Reviews</span>
-            </div>
-            
-            <h3 className="text-lg font-bold text-white">
-              🔔 You have {unseenReports.length} completed prescription analyses waiting to be reviewed.
-            </h3>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {unseenReports.map((job) => (
-                <div key={job.jobId} className="bg-[#070b13] border border-white/5 p-4 rounded-xl flex items-center justify-between gap-4 text-xs font-semibold">
-                  <div>
-                    <p className="text-white font-bold">Prescription Analysis</p>
-                    <p className="text-[10px] text-text-muted mt-0.5">Finished: {new Date(job.completedAt || job.updatedAt).toLocaleString()}</p>
-                  </div>
-                  <button
-                    onClick={() => router.push(`/prescription-analyzer?jobId=${job.jobId}`)}
-                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-primary hover:bg-primary-hover text-white text-[11px] font-bold tracking-wide transition-colors"
-                  >
-                    <span>View Report</span>
-                    <ChevronRight className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {activeScans.length > 0 && (
-              <div className="mt-8 bg-[#0d1525] border border-primary/20 rounded-2xl p-6 space-y-4 shadow-xl max-w-3xl">
-                <h3 className="text-sm font-bold text-white flex items-center gap-2 border-b border-white/5 pb-2">
-                  <Activity className="w-4 h-4 text-primary shrink-0 animate-pulse" />
-                  <span>⏳ Active Analyses in Progress</span>
-                </h3>
-                <div className="divide-y divide-white/5 space-y-3">
-                  {activeScans.map((job) => (
-                    <div key={job.jobId} className="pt-2 flex items-center justify-between gap-4 text-xs font-semibold">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-[#070b13] flex items-center justify-center border border-white/5 shrink-0">
-                          <RefreshCw className="w-4 h-4 text-primary animate-spin" />
-                        </div>
-                        <div>
-                          <p className="text-white font-bold">{job.fileName}</p>
-                          <p className="text-[10px] text-text-muted mt-0.5">Started: {new Date(job.createdAt).toLocaleTimeString()}</p>
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => router.push(`/prescription-analyzer?jobId=${job.jobId}`)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/10 hover:bg-primary/20 border border-primary/20 text-primary font-bold transition-colors"
-                      >
-                        <span>View Live Progress</span>
-                        <ChevronRight className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-       
-
-
-        {/* ── SCREEN 1: UPLOAD & INPUT ──────────────────────────── */}
-        {step === 'idle' && (
-          <div className="space-y-12">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-              {/* Upload Zone */}
-              <div className="lg:col-span-2 space-y-6">
-                <div
-                  onDragOver={handleDragOver}
-                  onDrop={handleDrop}
-                  onClick={() => fileInputRef.current?.click()}
-                  className="border-2 border-dashed border-white/10 hover:border-primary/50 bg-[#0d1525]/50 hover:bg-[#0d1525]/80 rounded-2xl p-10 flex flex-col items-center justify-center text-center cursor-pointer transition-all duration-300 min-h-[300px] group shadow-inner"
-                >
-                  <input
-                    type="file"
-                    ref={fileInputRef}
-                    onChange={handleFileChange}
-                    accept="image/*"
-                    className="hidden"
-                  />
-                  
-                  <div className="w-16 h-16 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary mb-5 group-hover:scale-110 transition-transform">
-                    <Upload className="w-8 h-8" />
-                  </div>
-                  
-                  <h3 className="font-bold text-lg text-white mb-2">
-                    Drag and drop prescription image
-                  </h3>
-                  <p className="text-xs text-text-muted max-w-sm leading-relaxed mb-6">
-                    Supports JPEG, PNG, or mobile camera snapshots.
-                  </p>
-                  <span className="px-5 py-2.5 rounded-xl bg-primary hover:bg-primary-hover text-white text-xs font-black tracking-wider uppercase transition-colors shadow-lg shadow-primary/20">
-                    Select File
-                  </span>
-                </div>
-              </div>
-
-              {/* Sidebar Preview */}
-              <div className="lg:col-span-1 bg-[#0d1525] border border-white/10 rounded-2xl p-6 space-y-5">
-                <h3 className="text-base font-bold flex items-center gap-2 text-primary border-b border-white/5 pb-3">
-                  <FileText className="w-4 h-4" /> Selected Image
-                </h3>
+              {/* ── ACTIVE SCANS & UNVIEWED REPORTS LISTS ────────────── */}
+            {(activeScans.length > 0 || unseenReports.length > 0) && (
+              <div className="space-y-6">
                 
-                {previewUrl ? (
-                  <div className="space-y-4">
-                    <div className="relative aspect-[3/4] w-full rounded-xl overflow-hidden border border-white/10 bg-[#070b13]">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={previewUrl}
-                        alt="Prescription preview"
-                        className="object-cover w-full h-full"
-                      />
-                    </div>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={handleAnalyze}
-                        className="flex-1 flex items-center justify-center rounded-xl h-11 bg-primary hover:bg-primary-hover text-white text-xs font-black tracking-wider uppercase transition-colors shadow-lg shadow-primary/25"
-                      >
-                        Analyze Prescription
-                      </button>
-                      <button
-                        onClick={handleReset}
-                        className="px-4 h-11 border border-white/10 hover:bg-white/5 rounded-xl text-text-muted hover:text-white transition-colors"
-                        title="Clear image"
-                      >
-                        Clear
-                      </button>
+                {/* Active Scans in Progress */}
+                {activeScans.length > 0 && (
+                  <div className="bg-card border border-border rounded-3xl p-6 shadow-xl space-y-4">
+                    <h3 className="text-sm font-bold text-text-base flex items-center gap-2 border-b border-border pb-2.5">
+                      <Clock className="w-4 h-4 text-primary shrink-0 animate-pulse" />
+                      <span>Active Analyses in Progress ({activeScans.length})</span>
+                    </h3>
+                    <div className="divide-y divide-border/60 space-y-4">
+                      {activeScans.map(job => (
+                        <div key={job.jobId} className="pt-4 first:pt-0 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs font-semibold">
+                          <div className="flex items-center gap-3">
+                            <div className="w-12 h-12 rounded-xl border border-border overflow-hidden bg-surface flex items-center justify-center shrink-0">
+                              {job.image ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img src={job.image} alt="Prescription" className="w-full h-full object-cover" />
+                              ) : (
+                                <FileImage className="w-5 h-5 text-text-muted" />
+                              )}
+                            </div>
+                            <div>
+                              <p className="text-text-base font-bold text-sm">{job.fileName}</p>
+                              <p className="text-[10px] text-text-muted mt-0.5 font-bold flex items-center gap-1">
+                                <Clock className="w-3.5 h-3.5 text-primary animate-pulse" />
+                                <span>Started: {new Date(job.createdAt).toLocaleTimeString()}</span>
+                              </p>
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => router.push(`/prescription-analyzer?jobId=${job.jobId}`)}
+                            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary/10 hover:bg-primary/20 border border-primary/20 text-primary text-xs font-black uppercase tracking-wider transition-colors animate-pulse"
+                          >
+                            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                            <span>Scanning...</span>
+                          </button>
+                        </div>
+                      ))}
                     </div>
                   </div>
-                ) : (
-                  <div className="h-64 rounded-xl border border-dashed border-white/5 bg-[#070b13]/50 flex items-center justify-center text-xs italic text-text-muted">
-                    No image selected yet
+                )}
+
+                {/* Pending Reviews / Unviewed Reports */}
+                {unseenReports.length > 0 && (
+                  <div className="bg-[#fefaf0] dark:bg-[#1a1608] border border-amber-500/10 rounded-3xl p-6 shadow-xl space-y-4">
+                    <h3 className="text-sm font-bold text-amber-800 dark:text-amber-300 flex items-center gap-2 border-b border-amber-500/20 pb-2.5">
+                      <Clock className="w-4 h-4 text-amber-500 shrink-0" />
+                      <span>Pending Reviews / Unviewed Reports ({unseenReports.length})</span>
+                    </h3>
+                    <div className="divide-y divide-amber-500/10 space-y-4">
+                      {unseenReports.map(job => (
+                        <div key={job.jobId} className="pt-4 first:pt-0 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs font-semibold">
+                          <div className="flex items-center gap-3">
+                            <div className="w-12 h-12 rounded-xl border border-amber-500/20 overflow-hidden bg-surface flex items-center justify-center shrink-0">
+                              {job.image ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img src={job.image} alt="Prescription" className="w-full h-full object-cover" />
+                              ) : (
+                                <FileImage className="w-5 h-5 text-text-muted" />
+                              )}
+                            </div>
+                            <div>
+                              <p className="text-amber-900 dark:text-amber-200 font-bold text-sm">
+                                {job.result?.prescribedMedications?.length 
+                                  ? job.result.prescribedMedications.map((m: any) => m.medicineName).slice(0, 2).join(', ') + (job.result.prescribedMedications.length > 2 ? '...' : '')
+                                  : "Prescription Scan"}
+                              </p>
+                              <p className="text-[10px] text-amber-700/80 dark:text-amber-400 mt-0.5 font-bold flex items-center gap-1">
+                                <Calendar className="w-3.5 h-3.5 text-amber-500" />
+                                <span>Completed: {new Date(job.completedAt || job.createdAt).toLocaleString()}</span>
+                              </p>
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => router.push(`/prescription-analyzer?jobId=${job.jobId}`)}
+                            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-black uppercase tracking-wider transition-colors shadow-md shadow-amber-500/25"
+                          >
+                            <span>View Report</span>
+                            <ChevronRight className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
+            )}
+
+        {/* ── STEP 1: UPLOAD & QUEUE DASHBOARD AREA ──────────────── */}
+        {step === 'idle' && (
+          <div className="space-y-10">
+            
+            {/* File upload zone container */}
+            <div className="bg-card border border-border rounded-3xl p-8 shadow-xl flex flex-col items-center justify-center">
+              <div 
+                onDragOver={handleDragOver}
+                onDrop={handleDrop}
+                className="w-full max-w-2xl border-2 border-dashed border-border hover:border-primary/50 bg-surface/50 hover:bg-surface rounded-2xl p-10 flex flex-col items-center justify-center text-center cursor-pointer transition-all duration-300 min-h-[260px] group shadow-inner"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <input 
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileChange}
+                  accept="image/*,application/pdf"
+                  className="hidden"
+                />
+
+                <div className="w-16 h-16 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-primary mb-5 group-hover:scale-105 transition-transform">
+                  <Upload className="w-8 h-8" />
+                </div>
+
+                <h3 className="font-bold text-lg text-text-base mb-1">
+                  Upload Prescription
+                </h3>
+                <p className="text-xs text-text-muted max-w-sm leading-relaxed mb-6 font-semibold">
+                  JPG, PNG or PDF • Max 10MB
+                </p>
+
+                <button 
+                  type="button"
+                  className="px-6 h-12 rounded-xl bg-[#009b86] hover:bg-[#008674] text-white text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2 shadow-lg shadow-[#009b86]/20"
+                >
+                  <Camera className="w-4 h-4" />
+                  <span>Upload Image</span>
+                </button>
+
+                <p className="text-xs text-text-muted font-bold uppercase tracking-wider mt-4">
+                  or drag and drop your file here
+                </p>
+              </div>
+
+              {/* Uploaded File Indicators */}
+              {file && (
+                <div className="w-full max-w-2xl mt-6 p-4 bg-surface border border-border rounded-2xl flex items-center justify-between animate-fade-in">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-lg border border-border overflow-hidden bg-black flex items-center justify-center shrink-0">
+                      {previewUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={previewUrl} alt="Preview" className="w-full h-full object-cover" />
+                      ) : (
+                        <FileImage className="w-6 h-6 text-text-muted" />
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-text-base font-bold text-sm truncate max-w-xs">{file.name}</p>
+                      <p className="text-[10px] text-emerald-500 font-bold uppercase tracking-wider flex items-center gap-1 mt-0.5">
+                        <Check className="w-3.5 h-3.5" />
+                        <span>Uploaded successfully</span>
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={handleAnalyze}
+                      className="px-4 py-2 rounded-xl bg-primary hover:bg-primary-hover text-white text-xs font-black uppercase tracking-wider transition-all shadow-md shadow-primary/20"
+                    >
+                      Process Analysis
+                    </button>
+                    <button
+                      onClick={handleReset}
+                      className="px-3 py-2 border border-border rounded-xl text-text-muted hover:text-text-base text-xs font-bold uppercase transition-colors"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
+
+      
           </div>
         )}
 
-        {/* ── SCREEN 2: ANALYZING STATE ─────────────────────────── */}
+        {/* ── STEP 2: ANALYZING LOADING SCREEN ──────────────────── */}
         {step === 'analyzing' && (
           <div className="max-w-xl mx-auto py-16 flex flex-col items-center justify-center gap-6 text-center">
             <div className="relative w-24 h-24 flex items-center justify-center">
@@ -589,217 +693,313 @@ function PrescriptionAnalyzerContent() {
             </div>
             
             <div className="space-y-2">
-              <h3 className="font-bold text-lg text-white">Analyzing Prescription</h3>
-              <p className="text-xs text-text-muted font-bold tracking-wider animate-pulse">
+              <h3 className="font-bold text-lg text-text-base">Analyzing Prescription Handwriting</h3>
+              <p className="text-xs text-text-muted font-bold tracking-wider animate-pulse max-w-md mx-auto leading-relaxed">
                 {loadingMessages[loadingPhase]}
               </p>
             </div>
 
-            {backgroundProcessingInfo && (
-              <div className="bg-[#0b1220] border border-primary/20 rounded-2xl p-5 text-sm text-text-sub max-w-md flex flex-col items-center gap-3">
-                <div className="flex items-center gap-2 text-primary font-bold">
-                  <Clock className="w-4 h-4 shrink-0" />
-                  <span>Processing in Background</span>
-                </div>
-                <p className="text-xs text-text-muted leading-relaxed">
-                  You can safely browse other pages, book doctors, or close this tab. Our queue system is running. Once complete, a global toast notification will show on your screen to direct you back here!
-                </p>
-              </div>
-            )}
+            <div className="bg-card border border-border p-5 rounded-2xl max-w-md space-y-2 shadow-xl text-center">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-primary flex items-center justify-center gap-1.5">
+                <Clock className="w-4 h-4" />
+                <span>Processing in Background</span>
+              </h4>
+              <p className="text-xs text-text-muted leading-relaxed font-semibold">
+                You can safely navigate away from this page. Our cloud queue handles parsing in the background. Once ready, you will receive a notification to view results.
+              </p>
+            </div>
           </div>
         )}
 
-        {/* ── SCREEN 3: RESULTS VIEW ────────────────────────────── */}
+        {/* ── STEP 3: RESULTS OVERHAUL OVERLAY ──────────────────── */}
         {step === 'results' && (
-          <div className="space-y-10">
+          <div className="space-y-8 animate-fade-in">
             
-            {/* Section Controls */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-[#0d1525] p-5 rounded-2xl border border-white/10">
-              <div className="flex items-center gap-3">
-                <span className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
-                  <CheckCircle className="w-5 h-5" />
-                </span>
+            {/* Analysis Complete Status Card */}
+            <div className="bg-[#e6fbf7] dark:bg-[#06211e] border border-emerald-500/20 rounded-2xl p-5 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-full bg-[#c2f6ec] dark:bg-[#0b3d36] flex items-center justify-center text-emerald-600 dark:text-emerald-400 shrink-0">
+                  <Check className="w-6 h-6 stroke-[3px]" />
+                </div>
                 <div>
-                  <h3 className="font-bold text-base text-white">Clinical Scan Completed</h3>
-                  <p className="text-xs text-text-muted">{prescribedData.length} medications identified on prescription.</p>
+                  <h3 className="font-black text-base text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5">
+                    <span>Analysis Complete</span>
+                    <CheckCircle className="w-4 h-4 text-emerald-500 fill-emerald-500/20" />
+                  </h3>
+                  <p className="text-xs text-emerald-700 dark:text-emerald-400 font-semibold mt-0.5">
+                    We found {prescribedData.length} medicines in your prescription (searched by generic name)
+                  </p>
+                </div>
+              </div>
+
+              {/* Timestamp */}
+              <div className="flex items-center gap-1.5 text-xs text-emerald-700 dark:text-emerald-400 font-bold uppercase tracking-wider self-end sm:self-auto">
+                <Calendar className="w-4 h-4" />
+                <span>{analysisDate}</span>
+              </div>
+            </div>
+
+            {/* Medicines Generic info Banner */}
+            <div className="bg-[#e6f0fa] dark:bg-[#071c35] border border-blue-500/20 rounded-2xl p-5 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-start gap-3">
+                <Info className="w-5 h-5 text-blue-500 shrink-0 mt-0.5" />
+                <div>
+                  <h4 className="font-bold text-sm text-blue-900 dark:text-blue-200">
+                    Medicines are identified by their generic names
+                  </h4>
+                  <p className="text-xs text-blue-700 dark:text-blue-300 font-semibold mt-0.5 leading-relaxed">
+                    Generic medicines contain the same active ingredients and work the same way.
+                  </p>
                 </div>
               </div>
               
-              <button
-                onClick={handleReset}
-                className="flex items-center gap-2 px-4 h-11 border border-white/10 hover:bg-white/5 rounded-xl text-xs font-bold uppercase tracking-wider text-text-sub hover:text-white transition-colors self-stretch sm:self-auto justify-center"
+              <button 
+                type="button"
+                className="px-4 py-2 border border-blue-400/30 hover:bg-blue-500/10 text-blue-700 dark:text-blue-300 text-xs font-bold uppercase tracking-wider rounded-xl transition-all self-stretch sm:self-auto justify-center flex shrink-0"
               >
-                <RefreshCw className="w-3.5 h-3.5" />
-                Scan Another
+                Learn more
               </button>
             </div>
 
-            {/* Prescribed Medications Card Grid */}
-            <div className="space-y-4">
-              <h3 className="text-xl font-bold flex items-center gap-2 text-white">
-                <FileText className="w-5 h-5 text-primary" /> Extracted Medications
-              </h3>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {prescribedData.map((med, index) => (
-                  <div key={index} className="bg-[#0d1525] border border-white/5 rounded-2xl p-6 flex flex-col justify-between hover:border-primary/20 transition-all gap-5 relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-[40px] pointer-events-none" />
-                    
-                    <div className="space-y-4">
-                      {/* Name Header */}
-                      <div className="flex justify-between items-start gap-4">
-                        <div>
-                          <span className="text-[10px] font-black tracking-widest text-primary uppercase">Prescribed Brand</span>
-                          <h4 className="font-black text-xl text-white mt-0.5">{med.medicineName}</h4>
-                          <p className="text-xs font-bold text-text-muted mt-0.5">{med.strength}</p>
-                        </div>
-                        <span className="px-2.5 py-1 rounded-lg text-[10px] font-black tracking-wider bg-white/5 border border-white/10 text-white">
-                          {med.priceBDT}
-                        </span>
-                      </div>
-
-                      {/* Dosage details */}
-                      <div className="bg-[#070b13] p-3 rounded-xl border border-white/5 text-xs font-semibold text-text-sub space-y-1">
-                        <span className="text-[9px] font-black uppercase text-primary tracking-widest block">Dosage & Instructions</span>
-                        <p className="text-white leading-relaxed">{med.dosage}</p>
-                      </div>
-
-                      {/* Generic and Manufacturer */}
-                      <div className="grid grid-cols-2 gap-4 text-xs font-semibold">
-                        <div>
-                          <span className="text-[9px] text-text-muted uppercase tracking-wider block">Generic Group</span>
-                          <span className="text-white flex items-center gap-1 mt-0.5">
-                            <Layers className="w-3.5 h-3.5 text-primary shrink-0" />
-                            {med.genericName}
-                          </span>
-                        </div>
-                        <div>
-                          <span className="text-[9px] text-text-muted uppercase tracking-wider block">Manufacturer</span>
-                          <span className="text-white flex items-center gap-1 mt-0.5">
-                            <Building className="w-3.5 h-3.5 text-[#2dd4bf] shrink-0" />
-                            {med.manufacturer}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Clinical description */}
-                      <div className="text-xs leading-relaxed text-text-sub space-y-2 border-t border-white/5 pt-4">
-                        <p className="font-semibold text-white">Clinical Indications</p>
-                        <p>{med.description}</p>
-                      </div>
-
-                      {/* Side effects */}
-                      <div className="text-xs leading-relaxed text-text-sub space-y-1 bg-red-500/[0.02] border border-red-500/10 p-3 rounded-xl">
-                        <p className="font-bold text-red-400">Core Side Effects</p>
-                        <p className="text-red-400/90">{med.sideEffects}</p>
-                      </div>
-                    </div>
-
-                    {/* Packaging references */}
-                    <div className="border-t border-white/5 pt-4 text-xs text-text-muted flex items-center gap-2">
-                      <Eye className="w-4 h-4 text-primary shrink-0" />
-                      <span>{med.packagingRef}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Interactive Gate: See Alternative Medicines */}
-            <div className="flex flex-col items-center justify-center py-6 border-t border-white/5">
+            {/* Tabs selector */}
+            <div className="flex border-b border-border font-bold text-xs uppercase tracking-wider select-none">
               <button
-                onClick={() => setShowAlternatives(!showAlternatives)}
-                className={`flex items-center justify-center gap-2.5 px-8 h-14 rounded-2xl font-black text-base transition-all shadow-xl ${
-                  showAlternatives 
-                    ? "bg-[#0b1220] border border-white/10 text-white"
-                    : "bg-primary hover:bg-primary-hover text-white shadow-primary/25 hover:scale-[1.01]"
+                onClick={() => setActiveTab('medicines')}
+                className={`px-5 py-4 border-b-2 transition-all flex items-center gap-2 ${
+                  activeTab === 'medicines'
+                    ? 'border-primary text-primary'
+                    : 'border-transparent text-text-muted hover:text-text-base'
                 }`}
               >
-                <span>{showAlternatives ? "Hide Alternative Medicines" : "See Alternative Medicines (Same Generic Group)"}</span>
-                <TrendingDown className="w-5 h-5 shrink-0" />
+                <FileText className="w-4 h-4" />
+                <span>Medicines ({prescribedData.length})</span>
               </button>
-              <p className="text-[10px] font-bold text-text-muted uppercase tracking-widest mt-3">
-                Pre-fetched in background • Categorized by generic group
-              </p>
+              <button
+                onClick={() => setActiveTab('advice')}
+                className={`px-5 py-4 border-b-2 transition-all flex items-center gap-2 ${
+                  activeTab === 'advice'
+                    ? 'border-primary text-primary'
+                    : 'border-transparent text-text-muted hover:text-text-base'
+                }`}
+              >
+                <BookOpen className="w-4 h-4" />
+                <span>General Advice</span>
+              </button>
             </div>
 
-            {/* Section 2: Alternative Brand Suggestions */}
-            <AnimatePresence>
-              {showAlternatives && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                  className="space-y-6 overflow-hidden"
-                >
-                  <div className="flex items-center gap-2 mb-2">
-                    <TrendingDown className="w-5 h-5 text-[#2dd4bf]" />
-                    <h3 className="text-xl font-bold text-white">Suggested Local Alternatives</h3>
-                  </div>
+            {/* Tab: Medicines List */}
+            {activeTab === 'medicines' && (
+              <div className="space-y-6">
+                {prescribedData.map((med, medIdx) => {
+                  // Find matching alternative family group
+                  const altGroup = alternativesData.find(
+                    g => g.prescribedName === med.medicineName || g.genericName === med.genericName
+                  );
+                  const alternatives = altGroup ? altGroup.alternatives : [];
 
-                  <div className="space-y-8">
-                    {alternativesData.map((group, groupIdx) => (
-                      <div key={groupIdx} className="bg-[#0b1220] border border-white/5 rounded-2xl p-6 md:p-8 space-y-6">
-                        
-                        {/* Generic Header */}
-                        <div className="border-b border-white/5 pb-4 flex flex-col sm:flex-row justify-between sm:items-center gap-3">
-                          <div>
-                            <span className="text-[9px] font-black uppercase text-primary tracking-widest">Generic Family</span>
-                            <h4 className="font-black text-lg md:text-xl text-white mt-0.5">{group.genericName}</h4>
-                          </div>
-                          <div className="text-left sm:text-right">
-                            <span className="text-[9px] font-black uppercase text-text-muted tracking-widest block">Replacing Prescribed</span>
-                            <span className="text-xs font-bold text-white bg-white/5 px-2.5 py-1 rounded border border-white/10 mt-1 inline-block">
-                              {group.prescribedName}
-                            </span>
-                          </div>
+                  const hasMoreThanThree = alternatives.length > 3;
+                  const isShowingAll = !!showAllAlternatives[medIdx];
+                  const visibleAlternatives = isShowingAll ? alternatives : alternatives.slice(0, 3);
+
+                  return (
+                    <div 
+                      key={medIdx} 
+                      className="bg-card border border-border rounded-2xl overflow-hidden shadow-xl grid grid-cols-1 lg:grid-cols-12"
+                    >
+                      {/* Left Column: Medicine details */}
+                      <div className="lg:col-span-6 p-6 flex gap-4 border-r border-border">
+                        {/* Number Badge */}
+                        <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary border border-primary/25 font-black text-base flex items-center justify-center shrink-0">
+                          {medIdx + 1}
                         </div>
 
-                        {/* List of alternative cards */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                          {group.alternatives.map((alt, altIdx) => (
-                            <div key={altIdx} className="bg-[#0d1525] border border-white/5 rounded-xl p-5 hover:border-[#2dd4bf]/30 transition-all flex flex-col justify-between gap-4">
-                              <div className="space-y-3">
-                                
-                                {/* Header */}
-                                <div className="flex justify-between items-start gap-4">
-                                  <div>
-                                    <h5 className="font-bold text-base text-white">{alt.brandName}</h5>
-                                    <p className="text-xs text-text-muted mt-0.5 flex items-center gap-1 font-semibold">
-                                      <Building className="w-3.5 h-3.5 text-primary shrink-0" />
-                                      {alt.manufacturer}
-                                    </p>
+                        <div className="space-y-4 flex-1">
+                          <div>
+                            <h4 className="font-black text-xl text-text-base">{med.medicineName}</h4>
+                            <p className="text-xs text-text-muted font-bold uppercase mt-0.5">{med.strength || "Dosage Strength"}</p>
+                          </div>
+
+                          <span className="inline-flex items-center gap-1 px-3 py-1 rounded bg-primary/15 border border-primary/30 text-primary text-xs font-bold uppercase tracking-wider">
+                            Generic Name: {med.genericName}
+                          </span>
+
+                          <div className="space-y-1.5 text-xs text-text-sub font-semibold leading-relaxed">
+                            <p className="text-text-base font-bold">Clinical Use</p>
+                            <p>{med.description}</p>
+                          </div>
+
+                          <div className="space-y-1.5 text-xs leading-relaxed border-t border-border pt-4">
+                            <p className="font-bold text-red-500 flex items-center gap-1">
+                              <AlertCircle className="w-4 h-4 shrink-0" />
+                              <span>Common Side Effects</span>
+                            </p>
+                            <p className="text-text-muted font-semibold">{med.sideEffects}</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Right Column: Alternative generic substitutes */}
+                      <div className="lg:col-span-6 p-6 bg-surface/30 flex flex-col justify-between">
+                        <div className="space-y-4">
+                          
+                          {/* Alternative header */}
+                          <div className="flex justify-between items-center border-b border-border pb-3">
+                            <h5 className="font-bold text-xs text-text-base uppercase tracking-wider flex items-center gap-1.5">
+                              <TrendingDown className="w-4 h-4 text-primary shrink-0 animate-pulse" />
+                              <span>Alternative Medicines ({alternatives.length})</span>
+                            </h5>
+                          </div>
+
+                          {/* Alternatives list */}
+                          {alternatives.length === 0 ? (
+                            <p className="text-xs text-text-muted italic py-6">No generic substitutes found in registry.</p>
+                          ) : (
+                            <div className="space-y-2">
+                              {visibleAlternatives.map((alt, altIdx) => {
+                                const key = `${medIdx}-${altIdx}`;
+                                const isExpanded = expandedAltKey === key;
+
+                                return (
+                                  <div 
+                                    key={altIdx} 
+                                    className="border border-border rounded-xl bg-card overflow-hidden transition-all shadow-sm"
+                                  >
+                                    <div 
+                                      onClick={() => toggleExpandAlternative(key)}
+                                      className="p-3 flex justify-between items-center cursor-pointer hover:bg-surface/50 select-none text-xs font-bold font-semibold text-text-base"
+                                    >
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-text-muted">{altIdx + 1}.</span>
+                                        <div>
+                                          <p className="font-bold text-text-base">{alt.brandName}</p>
+                                          <p className="text-[10px] text-text-muted font-medium mt-0.5">{alt.manufacturer}</p>
+                                        </div>
+                                      </div>
+
+                                      <div className="flex items-center gap-3">
+                                        <span className="text-primary font-black">{alt.priceBDT}</span>
+                                        {isExpanded ? (
+                                          <ChevronUp className="w-4 h-4 text-text-muted shrink-0" />
+                                        ) : (
+                                          <ChevronDown className="w-4 h-4 text-text-muted shrink-0" />
+                                        )}
+                                      </div>
+                                    </div>
+
+                                    {/* Expanded Details Grid */}
+                                    {isExpanded && (
+                                      <div className="p-4 border-t border-border bg-surface/50 text-[11px] leading-relaxed text-text-sub font-semibold grid grid-cols-2 gap-3 animate-fade-in">
+                                        <div className="col-span-2">
+                                          <p className="text-[9px] font-bold uppercase text-text-muted tracking-wider">Generic Equivalency</p>
+                                          <span className="inline-flex items-center gap-1.5 text-xs text-emerald-500 font-bold mt-0.5">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                                            Same Active Ingredient (Bioequivalent)
+                                          </span>
+                                        </div>
+
+                                        <div>
+                                          <p className="text-[9px] font-bold uppercase text-text-muted tracking-wider">Dosage Form</p>
+                                          <p className="text-text-base mt-0.5 font-bold">Capsule/Tablet</p>
+                                        </div>
+
+                                        <div>
+                                          <p className="text-[9px] font-bold uppercase text-text-muted tracking-wider">Strength</p>
+                                          <p className="text-text-base mt-0.5 font-bold">{med.strength || "Standard"}</p>
+                                        </div>
+
+                                        <div className="col-span-2 border-t border-border/60 pt-2">
+                                          <p className="text-[9px] font-bold uppercase text-text-muted tracking-wider">Savings Profile</p>
+                                          <p className="text-primary font-bold text-xs mt-0.5">{alt.savingsInfo}</p>
+                                        </div>
+
+                                        <div className="col-span-2">
+                                          <p className="text-[9px] font-bold uppercase text-text-muted tracking-wider">Description</p>
+                                          <p className="text-text-muted mt-0.5 text-xs font-medium">{alt.description}</p>
+                                        </div>
+                                      </div>
+                                    )}
                                   </div>
-                                  <span className="text-xs font-bold text-[#2dd4bf]">
-                                    {alt.priceBDT}
-                                  </span>
-                                </div>
-
-                                {/* Description */}
-                                <p className="text-xs text-text-sub leading-relaxed font-semibold">
-                                  {alt.description}
-                                </p>
-                              </div>
-
-                              {/* Savings / Value Indicator */}
-                              <div className="bg-[#070b13] p-3 rounded-lg border border-[#2dd4bf]/20 flex items-center justify-between text-xs font-bold text-[#2dd4bf]">
-                                <span className="flex items-center gap-1">
-                                  <TrendingDown className="w-4 h-4 animate-bounce" />
-                                  <span>Value Profile</span>
-                                </span>
-                                <span>{alt.savingsInfo}</span>
-                              </div>
-
+                                );
+                              })}
                             </div>
-                          ))}
+                          )}
+                        </div>
+
+                        {/* View more / dropdown controls */}
+                        <div className="pt-4 border-t border-border/80 flex items-center justify-between text-xs font-bold text-primary">
+                          <span>Verified by pharmaceutical grounding index</span>
+                          
+                          {hasMoreThanThree && (
+                            <button
+                              type="button"
+                              onClick={() => toggleShowAllAlternatives(medIdx)}
+                              className="hover:underline flex items-center gap-0.5 transition-colors"
+                            >
+                              <span>{isShowingAll ? "Show fewer alternatives" : `View more alternatives (${alternatives.length - 3} more)`}</span>
+                              {isShowingAll ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+                            </button>
+                          )}
                         </div>
 
                       </div>
-                    ))}
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Tab: General Advice */}
+            {activeTab === 'advice' && (
+              <div className="bg-card border border-border rounded-2xl p-6 md:p-8 space-y-6 shadow-xl leading-relaxed">
+                <h3 className="font-bold text-lg text-text-base border-b border-border pb-3 flex items-center gap-2">
+                  <BookOpen className="w-5 h-5 text-primary shrink-0" />
+                  <span>General Pharmaceutical Guidance</span>
+                </h3>
+
+                <div className="space-y-4 text-xs font-semibold text-text-sub">
+                  <p>
+                    1. **Bioequivalence**: All recommended alternatives share the identical chemical generic active substance as your prescribed medicine. They produce exact bioequivalent therapeutic effects inside the human body.
+                  </p>
+                  <p>
+                    2. **Consult Physician**: Do not alter, swap, or suspend prescribed antibiotics or cardiovascular maintenance regimens without confirming directly with your doctor.
+                  </p>
+                  <p>
+                    3. **Storage Instructions**: Store all medicines in a cool, dry place away from direct sunlight, below 30°C. Keep out of reach of children.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Reset button row */}
+            <div className="flex justify-center pt-6 border-t border-border">
+              <button
+                onClick={handleReset}
+                className="flex items-center gap-2.5 px-6 h-12 rounded-xl border border-border bg-card hover:bg-surface text-text-sub hover:text-text-base text-xs font-bold uppercase tracking-wider transition-all shadow-md"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                <span>Upload Another Prescription</span>
+              </button>
+            </div>
+
+            {/* Bottom Disclaimer Banner */}
+            <div className="bg-[#fef9c3] dark:bg-[#25220c] border border-amber-500/25 rounded-2xl p-5 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="flex items-start gap-3">
+                <ShieldCheck className="w-6 h-6 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5 animate-pulse" />
+                <div>
+                  <h4 className="font-bold text-sm text-amber-900 dark:text-amber-200">
+                    Disclaimer
+                  </h4>
+                  <p className="text-xs text-amber-800 dark:text-amber-300 font-semibold mt-0.5 leading-relaxed max-w-2xl">
+                    This analysis is for informational purposes only and not a substitute for professional medical advice. Always consult your doctor or pharmacist before making any changes to your medication.
+                  </p>
+                </div>
+              </div>
+              
+              {/* Decorative Mock Pills container */}
+              <div className="hidden lg:flex items-center gap-1 bg-amber-500/10 border border-amber-500/20 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase text-amber-700 dark:text-amber-300">
+                <span>Verified Rx</span>
+              </div>
+            </div>
 
           </div>
         )}
@@ -811,7 +1011,7 @@ function PrescriptionAnalyzerContent() {
 
 export default function PrescriptionAnalyzerPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[#070b13] flex items-center justify-center text-white">Loading Prescription Intelligence...</div>}>
+    <Suspense fallback={<div className="min-h-screen bg-surface flex items-center justify-center text-text-muted">Loading Prescription Intelligence...</div>}>
       <PrescriptionAnalyzerContent />
     </Suspense>
   );

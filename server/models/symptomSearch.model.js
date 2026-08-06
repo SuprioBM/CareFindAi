@@ -1,4 +1,4 @@
-﻿/**
+/**
  * User shall view their previous symptom searches along with the AI-recommended specialists.
  *
  * This Mongoose model defines the structure (schema) for storing a single symptom search record
@@ -100,6 +100,15 @@ const symptomSearchSchema = new Schema(
       default: "",
       maxlength: 500,
     },
+
+    // Paired questions and answers from the triage session.
+    qaHistory: [
+      {
+        question: { type: String, required: true },
+        answer: { type: String, required: true },
+        timestamp: { type: Date, default: Date.now }
+      }
+    ],
   },
   {
     // Automatically adds "createdAt" and "updatedAt" fields to every document.
