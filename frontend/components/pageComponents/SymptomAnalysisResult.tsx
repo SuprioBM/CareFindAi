@@ -280,7 +280,8 @@ export default function SymptomAnalysisResult({
             type="button"
             onClick={() =>
               window.open(
-                `/manual-search?specialist=${encodeURIComponent(selectedSpecialty || "")}, '_blank'`
+                `/manual-search?specialist=${encodeURIComponent(selectedSpecialty || "")}`,
+                '_blank'
               )
             }
             disabled={!selectedSpecialty}

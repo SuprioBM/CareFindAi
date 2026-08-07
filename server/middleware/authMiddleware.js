@@ -88,20 +88,25 @@ export async function refresh(req, res) {
         .json({ message: "Session invalid. Please login again." });
     }
 
+    let newRefreshToken = crypto.randomBytes(32).toString("hex");
+    let isGraceRefresh = false;
+
     if (currentTokenForSid !== refreshToken) {
-      // 🚨 token reuse detected → revoke all sessions for safety
-      await revokeAllSessions(redis, userID);
-
-      res.clearCookie("refresh_token", getRefreshCookieOptions());
-
-      return res.status(401).json({
-        message:
-          "Refresh token reuse detected. Logged out everywhere. Please login again.",
-      });
+      // Check if it matches the previous token (grace period for concurrent requests/tabs)
+      const prevToken = await redis.get(`prev_sid:${sid}`);
+      if (prevToken && prevToken === refreshToken) {
+        isGraceRefresh = true;
+        newRefreshToken = currentTokenForSid; // Keep using the current token
+      } else {
+        // 🚨 token reuse detected → revoke all sessions for safety
+        await revokeAllSessions(redis, userID);
+        res.clearCookie("refresh_token", getRefreshCookieOptions());
+        return res.status(401).json({
+          message:
+            "Refresh token reuse detected. Logged out everywhere. Please login again.",
+        });
+      }
     }
-
-    // 3) Rotate: new refresh token
-    const newRefreshToken = crypto.randomBytes(32).toString("hex");
 
     const newAccessToken = jwt.sign(
       { id: userID, email, name, role },
@@ -109,23 +114,28 @@ export async function refresh(req, res) {
       { expiresIn: ACCESS_EXP },
     );
 
-    // 4) Update Redis (use MULTI to reduce race issues)
-    const multi = redis.multi();
+    if (!isGraceRefresh) {
+      // 4) Update Redis (use MULTI to reduce race issues)
+      const multi = redis.multi();
 
-    // new token session
-    multi.set(
-      `sess:${newRefreshToken}`,
-      JSON.stringify({ userID, sid, name, email,role }),
-      { EX: REFRESH_EXP },
-    );
+      // new token session
+      multi.set(
+        `sess:${newRefreshToken}`,
+        JSON.stringify({ userID, sid, name, email, role }),
+        { EX: REFRESH_EXP },
+      );
 
-    // update sid -> new token
-    multi.set(`sid:${sid}`, newRefreshToken, { EX: REFRESH_EXP });
+      // update sid -> new token
+      multi.set(`sid:${sid}`, newRefreshToken, { EX: REFRESH_EXP });
 
-    // delete old token mapping
-    multi.del(`sess:${refreshToken}`);
+      // set previous token for grace period lookup
+      multi.set(`prev_sid:${sid}`, refreshToken, { EX: 45 });
 
-    await multi.exec();
+      // expire old token mapping in 45 seconds (instead of immediate deletion)
+      multi.expire(`sess:${refreshToken}`, 45);
+
+      await multi.exec();
+    }
 
     // 5) Set new cookie
     res.cookie(

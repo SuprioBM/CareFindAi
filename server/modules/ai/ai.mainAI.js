@@ -1,4 +1,5 @@
 import { callGroq, safeJsonParse } from "./ai.groq.js";
+import Specialization from "../../models/specialization.model.js";
 
 const MAIN_MODEL = process.env.GROQ_MAIN_MODEL || "llama-3.1-8b-instant";
 
@@ -86,6 +87,19 @@ export async function runMainAI({
 }) {
   const safeContextText = truncateText(contextText, 3500);
 
+  // Fetch all active specialization names from the database
+  let dbSpecializations = [];
+  try {
+    const specs = await Specialization.find({ isActive: { $ne: false } }).select("name");
+    dbSpecializations = specs.map(s => s.name);
+  } catch (err) {
+    console.error("Failed to fetch specializations for AI prompt:", err);
+  }
+
+  const specsListText = dbSpecializations.length > 0
+    ? dbSpecializations.map(name => `"${name}"`).join(", ")
+    : `"Cardiology", "Neurology", "General Medicine", "Dermatology", "Paediatrics", "Orthopedic Surgery"`; // safe fallbacks
+
   try {
     const raw = await callGroq({
       model: MAIN_MODEL,
@@ -104,8 +118,7 @@ Your task:
 2. Use the retrieved medical context as the basis for your recommendation.
 3. Recommend the most appropriate specialist.
 4. Return a short 2/3 sentence explanation in English.
-5. Keep specialist name in standardized English.
-6. Return ONLY one valid JSON object.
+5. Return ONLY one valid JSON object.
 
 Rules:
 - No markdown
@@ -115,6 +128,10 @@ Rules:
 - warningMessage must be short
 - matchedSymptoms must contain at most 3 short items
 - urgency must be one of: low, medium, high, emergency
+
+CRITICAL SPECIALIST RULE:
+You MUST set the "specialist" field to EXACTLY one of the following specializations from our database. Do NOT recommend any name or specialty outside this list:
+[ ${specsListText} ]
 
 Return exactly:
 {

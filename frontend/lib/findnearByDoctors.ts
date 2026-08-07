@@ -16,7 +16,7 @@ export async function fetchNearbyDoctors(params: NearbyDoctorParams) {
   );
 
   const rawText = await res.text();
-
+  console.log(rawText)
   let parsed: any = null;
 
   try {
@@ -30,7 +30,7 @@ export async function fetchNearbyDoctors(params: NearbyDoctorParams) {
   }
 
   // ✅ keep sessionStorage (no change)
-  sessionStorage.setItem(
+  localStorage.setItem(
     "carefind_nearby_doctors",
     JSON.stringify({
       userLocation: {

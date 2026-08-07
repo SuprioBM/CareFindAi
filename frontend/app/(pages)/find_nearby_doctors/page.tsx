@@ -108,7 +108,7 @@ const [modalData, setModalData] = useState<{
 
   // ── Load session data ───────────────────────────────────────
   useEffect(() => {
-    const stored = sessionStorage.getItem('carefind_nearby_doctors');
+    const stored = localStorage.getItem('carefind_nearby_doctors');
     if (stored) {
       try {
         const parsed = JSON.parse(stored);

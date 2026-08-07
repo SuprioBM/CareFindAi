@@ -9,6 +9,7 @@
  */
 
 import Specialization from "../models/specialization.model.js";
+import Doctor from "../models/doctor.model.js";
 
 /**
  * Find or Create Specialization from AI Output
@@ -50,17 +51,22 @@ export async function findOrCreateSpecialization(name) {
   const cleanName = name.trim();
 
   // Generate URL-friendly slug from the specialization name
-  // Example: "Internal Medicine" → "internal-medicine"
-  // Example: "Cardio-Vascular Surgery" → "cardio-vascular-surgery"
   const slug = cleanName
     .toLowerCase() // convert to lowercase
-    .replace(/[^a-z0-9\s-]/g, "") // remove special characters (keep only alphanumeric, spaces, hyphens)
+    .replace(/[^a-z0-9\s-]/g, "") // remove special characters
     .replace(/\s+/g, "-"); // replace spaces with hyphens
 
-  // STEP 1: Try exact name match (case-insensitive)
-  // Most accurate but only works if name hasn't been modified
-  // Uses regex for case-insensitive matching
+  // Fetch unique specialization IDs from doctors to only allow specialties with doctors
+  let activeSpecializationIds = [];
+  try {
+    activeSpecializationIds = await Doctor.distinct("specialization");
+  } catch (err) {
+    console.error("Failed to fetch active specialization IDs in findOrCreateSpecialization:", err);
+  }
+
+  // STEP 1: Try exact name match (case-insensitive) among specialties with doctors
   let specialization = await Specialization.findOne({
+    _id: { $in: activeSpecializationIds },
     name: { $regex: `^${cleanName}$`, $options: "i" },
   });
 
@@ -68,34 +74,59 @@ export async function findOrCreateSpecialization(name) {
     return specialization;
   }
 
-  // STEP 2: Try slug-based lookup
-  // More reliable as it normalizes all variations of the name
-  // Handles differences in capitalization and spacing
-  specialization = await Specialization.findOne({ slug });
+  // STEP 2: Try slug-based lookup among specialties with doctors
+  specialization = await Specialization.findOne({
+    _id: { $in: activeSpecializationIds },
+    slug
+  });
 
   if (specialization) {
     return specialization;
   }
 
-  // STEP 3: Create new specialization if no match found
-  // Auto-generates basic description from the AI recommendation
-  try {
-    const newSpec = await Specialization.create({
-      name: cleanName,
-      slug,
-      description: `Auto-created from AI recommendation: ${cleanName}`,
-    });
+  // STEP 3: Fuzzy / overlap matching against active database specialties with doctors
+  const allSpecs = await Specialization.find({
+    _id: { $in: activeSpecializationIds },
+    isActive: { $ne: false }
+  });
+  let bestMatch = null;
+  let bestScore = 0;
 
-    return newSpec;
-  } catch (error) {
-    // Handle race condition: another request may have created the same specialization
-    // simultaneously, causing a duplicate key (11000) MongoDB error
-    // In this case, fetch and return the newly created specialization
-    if (error.code === 11000) {
-      return await Specialization.findOne({ slug });
+  for (const spec of allSpecs) {
+    const specNameLower = spec.name.toLowerCase();
+    const inputLower = cleanName.toLowerCase();
+
+    // Check if one contains the other
+    if (specNameLower.includes(inputLower) || inputLower.includes(specNameLower)) {
+      return spec;
     }
 
-    // Re-throw other errors (validation errors, connection issues, etc.)
-    throw error;
+    // Word overlap check
+    const specWords = specNameLower.split(/[^a-z0-9]/).filter(w => w.length > 2);
+    const inputWords = inputLower.split(/[^a-z0-9]/).filter(w => w.length > 2);
+
+    let overlap = 0;
+    for (const iw of inputWords) {
+      if (specWords.includes(iw)) {
+        overlap++;
+      }
+    }
+
+    if (overlap > bestScore) {
+      bestScore = overlap;
+      bestMatch = spec;
+    }
   }
+
+  if (bestMatch && bestScore > 0) {
+    return bestMatch;
+  }
+
+  // STEP 4: Fallback to "General Medicine" if no specialization with doctors is found
+  const fallback = await Specialization.findOne({
+    _id: { $in: activeSpecializationIds },
+    name: { $regex: "^General Medicine$", $options: "i" },
+  });
+
+  return fallback || allSpecs[0] || null;
 }

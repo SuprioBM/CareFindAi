@@ -1,5 +1,8 @@
 import { callGroq, safeJsonParse } from "../modules/ai/ai.groq.js";
 import { SYMPTOM_REGISTRY } from "../data/symptomRegistry.js";
+import Specialization from "../models/specialization.model.js";
+import Doctor from "../models/doctor.model.js";
+import { findOrCreateSpecialization } from "../utils/specializationFinder.js";
 
 const MODEL = process.env.GROQ_MAIN_MODEL || "llama-3.3-70b-versatile";
 
@@ -14,13 +17,13 @@ export class DispositionEngine {
   async evaluate(clinicalState, isEmergencyDetected = false, emergencyReason = null) {
     if (isEmergencyDetected) {
       return {
-        specialist: "Emergency Medicine",
+        specialist: "General Medicine",
         urgencyLevel: "emergency",
         explanation: emergencyReason || "Life-threatening symptoms detected. Please seek emergency medical care immediately.",
         matchedSymptoms: clinicalState.symptoms || [],
         warningMessage: "GO TO THE NEAREST EMERGENCY ROOM OR CALL AMBULANCE SERVICES IMMEDIATELY.",
         canShowDoctors: true,
-        specialties: ["Emergency Medicine", "Internal Medicine", "General Physician"]
+        specialties: ["General Medicine", "Cardiology", "Neurology"]
       };
     }
 
@@ -36,9 +39,25 @@ export class DispositionEngine {
     }
 
     if (baseSpecialties.size === 0) {
-      baseSpecialties.add("General Physician");
-      baseSpecialties.add("Internal Medicine");
+      baseSpecialties.add("General Medicine");
     }
+
+    // Fetch unique specialization IDs from doctors to only recommend specialties with doctors
+    let dbSpecializations = [];
+    try {
+      const activeSpecializationIds = await Doctor.distinct("specialization");
+      const specs = await Specialization.find({
+        _id: { $in: activeSpecializationIds },
+        isActive: { $ne: false }
+      }).select("name");
+      dbSpecializations = specs.map(s => s.name);
+    } catch (err) {
+      console.error("Failed to fetch specializations with doctors in DispositionEngine:", err);
+    }
+
+    const specsListText = dbSpecializations.length > 0
+      ? dbSpecializations.map(name => `"${name}"`).join(", ")
+      : `"General Medicine", "Cardiology", "Dermatology", "Neurology", "Orthopedic Surgery", "Paediatrics"`; // sensible fallback
 
     const timeline = clinicalState.symptomTimeline instanceof Map 
       ? Object.fromEntries(clinicalState.symptomTimeline.entries()) 
@@ -70,6 +89,10 @@ ${Array.from(baseSpecialties).join(", ")}
 3. Write a clear, brief explanation (maximum 2-3 sentences) explaining why this urgency and specialist are recommended.
 4. Extract the warning message (safety warnings, red-flag triggers) if any.
 5. Provide a confidence score (0.0 to 1.0) for this triage.
+
+### CRITICAL SPECIALIST RULE:
+You MUST recommend specialties that are EXACTLY from the following list of active specialties with registered doctors in our database. Do NOT recommend any name or specialty outside this list:
+[ ${specsListText} ]
 
 Return ONLY a valid JSON object. No markdown, no conversation, no greetings.
 
@@ -108,28 +131,53 @@ Return ONLY a valid JSON object. No markdown, no conversation, no greetings.
         ? parsed.specialties
         : Array.from(baseSpecialties);
 
+      // Map each resolved specialty to the exact canonical database document name
+      const mappedSpecialties = [];
+      for (const specName of resolvedSpecialties) {
+        const matched = await findOrCreateSpecialization(specName);
+        if (matched && !mappedSpecialties.includes(matched.name)) {
+          mappedSpecialties.push(matched.name);
+        }
+      }
+
+      if (mappedSpecialties.length === 0) {
+        mappedSpecialties.push("General Medicine");
+      }
+
       return {
-        specialist: resolvedSpecialties[0] || "General Physician",
+        specialist: mappedSpecialties[0] || "General Medicine",
         urgencyLevel: parsed.urgencyLevel || "routine",
         explanation: parsed.explanation || "Recommended consultation based on symptom criteria.",
         matchedSymptoms: symptoms,
         warningMessage: parsed.warningMessage || "",
         canShowDoctors: parsed.urgencyLevel !== "self-care",
-        specialties: resolvedSpecialties,
+        specialties: mappedSpecialties,
         confidenceScore: typeof parsed.confidenceScore === "number" ? parsed.confidenceScore : 0.8,
       };
     } catch (error) {
       console.error("Disposition Engine error, falling back to rule-based defaults:", error);
       
       const specialtiesArray = Array.from(baseSpecialties);
+      const mappedSpecialties = [];
+      for (const specName of specialtiesArray) {
+        const matched = await findOrCreateSpecialization(specName);
+        if (matched && !mappedSpecialties.includes(matched.name)) {
+          mappedSpecialties.push(matched.name);
+        }
+      }
+
+      if (mappedSpecialties.length === 0) {
+        mappedSpecialties.push("General Medicine");
+      }
+
       return {
-        specialist: specialtiesArray[0] || "General Physician",
+        specialist: mappedSpecialties[0] || "General Medicine",
         urgencyLevel: (clinicalState.redFlags || []).length > 0 ? "urgent" : "routine",
         explanation: `Recommended to consult a specialist for: ${symptoms.join(", ")}.`,
         matchedSymptoms: symptoms,
         warningMessage: (clinicalState.redFlags || []).length > 0 ? "Please seek care soon as red flags are reported." : "",
         canShowDoctors: true,
-        specialties: specialtiesArray,
+        specialties: mappedSpecialties,
         confidenceScore: 0.7,
       };
     }

@@ -47,13 +47,53 @@ export default function SymptomsPage() {
   // UX States
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll chat to bottom
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, loading]);
+
+  // Hydrate state from sessionStorage on mount
+  useEffect(() => {
+    const saved = sessionStorage.getItem('carefind_symptom_triage_state');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (parsed.step) setStep(parsed.step);
+        if (parsed.sessionId) setSessionId(parsed.sessionId);
+        if (parsed.age) setAge(parsed.age);
+        if (parsed.gender) setGender(parsed.gender);
+        if (parsed.duration) setDuration(parsed.duration);
+        if (parsed.primarySymptom) setPrimarySymptom(parsed.primarySymptom);
+        if (parsed.messages) setMessages(parsed.messages);
+        if (parsed.clinicalState) setClinicalState(parsed.clinicalState);
+        if (parsed.triageResult) setTriageResult(parsed.triageResult);
+      } catch (e) {
+        console.error('Failed to parse saved triage state:', e);
+      }
+    }
+  }, []);
+
+  // Save state to sessionStorage when any of these change
+  useEffect(() => {
+    if (step === 'intake' && !sessionId) {
+      sessionStorage.removeItem('carefind_symptom_triage_state');
+      return;
+    }
+    const stateToSave = {
+      step,
+      sessionId,
+      age,
+      gender,
+      duration,
+      primarySymptom,
+      messages,
+      clinicalState,
+      triageResult
+    };
+    sessionStorage.setItem('carefind_symptom_triage_state', JSON.stringify(stateToSave));
+  }, [step, sessionId, age, gender, duration, primarySymptom, messages, clinicalState, triageResult]);
 
   // Start the state-driven triage session
   async function handleStartTriage(e: React.FormEvent) {
@@ -196,6 +236,7 @@ export default function SymptomsPage() {
     setClinicalState(null);
     setTriageResult(null);
     setError('');
+    sessionStorage.removeItem('carefind_symptom_triage_state');
   }
 
   // Map backend triage result to props expected by SymptomAnalysisResult component
