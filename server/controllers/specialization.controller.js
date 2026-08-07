@@ -78,12 +78,21 @@ export async function createSpecialization(req, res) {
 export async function getAllSpecializations(req, res) {
   try {
     const specializations = await Specialization.aggregate([
-      { $sort: { createdAt: -1 } },
       {
         $lookup: {
           from: "doctors",
-          localField: "_id",
-          foreignField: "specialization",
+          let: { specializationId: "$_id" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $eq: ["$specialization", "$$specializationId"],
+                },
+                isActive: true,
+                isApproved: true,
+              },
+            },
+          ],
           as: "doctors",
         },
       },
@@ -93,13 +102,22 @@ export async function getAllSpecializations(req, res) {
         },
       },
       {
+        $match: {
+          doctorCount: { $gt: 0 },
+        },
+      },
+      {
         $project: {
-          doctors: 0, // drop the joined array, keep only the count
+          doctors: 0,
+        },
+      },
+      {
+        $sort: {
+          createdAt: -1,
         },
       },
     ]);
- 
-    
+
     return res.status(200).json({
       success: true,
       count: specializations.length,

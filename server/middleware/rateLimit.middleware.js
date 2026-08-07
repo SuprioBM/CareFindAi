@@ -30,7 +30,7 @@ export const rateLimit = (limit = 20, windowMs = 60 * 1000) => {
         domains: {},
         reasons: ["Too many requests. Please slow down."],
         next_step: "Wait and retry",
-        specialties: ["General Physician"]
+        specialties: ["General Medicine"]
       });
     }
 

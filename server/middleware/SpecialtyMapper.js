@@ -33,6 +33,6 @@ export class SpecialtyMapper {
    * fallback when no domain is confident
    */
   getFallback() {
-    return ["General Physician"];
+    return ["General Medicine"];
   }
 }

@@ -14,6 +14,7 @@ const navLinks = [
   { name: "Prescription Analyzer", href: "/prescription-analyzer" },
   { name: "How It Works", href: "/#how-it-works" },
   { name: "Symptom Checker", href: "/analyze" },
+  { name: "Find Doctors", href: "/find_nearby_doctors" },
 
 ];
 

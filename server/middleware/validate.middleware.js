@@ -13,7 +13,7 @@ export const validate = (schema) => {
         domains: {},
         reasons,
         next_step: "Correct request payload and retry",
-        specialties: ["General Physician"]
+        specialties: ["General Medicine"]
       });
     }
 

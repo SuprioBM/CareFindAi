@@ -55,7 +55,7 @@ function fallbackMainAI({ symptoms, recovered = {} }) {
   const specialist =
     recovered.specialist && recovered.specialist.trim()
       ? recovered.specialist.trim()
-      : "General Physician";
+      : "General Medicine";
 
   return {
     specialist,

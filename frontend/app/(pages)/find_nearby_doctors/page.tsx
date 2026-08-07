@@ -1,13 +1,15 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { apiFetch } from '@/lib/api';
 import { useAuth } from '@/authContext/authContext';
 import SavedLocationModal from "@/components/ModalComponent/SavedLocationModal";
 import { useSavedLocations,SavedLocation } from "@/lib/useSavedLocations";
 import { useRouter } from 'next/navigation';
-import { X, Plus, ArrowUpDown, Heart, Star, Navigation, MapPin } from 'lucide-react';
+import { Plus, ArrowUpDown, Heart, Star, Navigation, Phone, ChevronDown, Check } from 'lucide-react';
+import { fetchNearbyDoctors } from '@/lib/findnearByDoctors';
+import { SpecializationOption, SpecializationResponse } from '@/types/types';
 
 // types for typesctipt
 interface SessionDoctor {
@@ -38,11 +40,17 @@ interface Doctor {
   rating: number;
   reviews: number;
   photo: string;
-  insurance: string;
+  appointmentPhones: string[];
+  appointmentWebsite: string;
   availability: 'today' | 'tomorrow' | string;
   lat: number;
   lng: number;
   distanceMiles: number;
+}
+
+function phoneTelHref(phone: string): string {
+  const cleaned = phone.replace(/[^\d+]/g, '');
+  return `tel:${cleaned || phone.trim()}`;
 }
 
 // checking the distance between user and doctor using Haversine formula (in miles)
@@ -89,6 +97,13 @@ export default function DoctorDiscoveryPage() {
   const [sessionDoctors, setSessionDoctors] = useState<SessionDoctor[]>([]);
   const [sessionSpecialization, setSessionSpecialization] = useState('');
   const [sessionLoaded, setSessionLoaded] = useState(false);
+  const [specializations, setSpecializations] = useState<SpecializationOption[]>([]);
+  const [loadingSpecializations, setLoadingSpecializations] = useState(true);
+  const [locationFromSession, setLocationFromSession] = useState(false);
+  const [locationPromptNeeded, setLocationPromptNeeded] = useState(false);
+  const [shouldFetchInitialDoctors, setShouldFetchInitialDoctors] = useState(false);
+  const [specMenuOpen, setSpecMenuOpen] = useState(false);
+  const specMenuRef = useRef<HTMLDivElement>(null);
   const { user, loading } = useAuth();
 
   const {
@@ -118,17 +133,133 @@ const [modalData, setModalData] = useState<{
             Number(parsed.userLocation.latitude),
             Number(parsed.userLocation.longitude),
           ]);
+          setLocationFromSession(true);
           setLocLoading(false);
         }
 
-        if (Array.isArray(parsed?.doctors)) setSessionDoctors(parsed.doctors);
+        if (Array.isArray(parsed?.doctors)) {
+          setSessionDoctors(parsed.doctors);
+        }
         if (parsed?.specialization) setSessionSpecialization(parsed.specialization);
+
+        const hasStoredLocation =
+          parsed?.userLocation?.latitude != null &&
+          parsed?.userLocation?.longitude != null;
+        const hasStoredDoctors =
+          Array.isArray(parsed?.doctors) && parsed.doctors.length > 0;
+        if (hasStoredLocation && parsed?.specialization && !hasStoredDoctors) {
+          setShouldFetchInitialDoctors(true);
+        }
       } catch (e) {
         console.error('Failed to parse session doctors data:', e);
       }
     }
     setSessionLoaded(true);
   }, []);
+
+  useEffect(() => {
+    async function loadSpecializations() {
+      try {
+        setLoadingSpecializations(true);
+        const res = await apiFetch('/specializations');
+        const data: SpecializationResponse = await res.json();
+        if (data.success) setSpecializations(data.data);
+      } catch (e) {
+        console.error('Failed to load specializations:', e);
+      } finally {
+        setLoadingSpecializations(false);
+      }
+    }
+    loadSpecializations();
+  }, []);
+
+  useEffect(() => {
+    if (!specMenuOpen) return;
+
+    function handlePointerDown(e: MouseEvent) {
+      if (!specMenuRef.current?.contains(e.target as Node)) {
+        setSpecMenuOpen(false);
+      }
+    }
+
+    document.addEventListener('mousedown', handlePointerDown);
+    return () => document.removeEventListener('mousedown', handlePointerDown);
+  }, [specMenuOpen]);
+
+  const requestUserLocation = () => {
+    setLocLoading(true);
+    setLocationPromptNeeded(false);
+
+    if (!('geolocation' in navigator)) {
+      setUserLocation(DEFAULT_LOCATION);
+      setLocLoading(false);
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setUserLocation([pos.coords.latitude, pos.coords.longitude]);
+        setLocLoading(false);
+      },
+      () => {
+        setLocLoading(false);
+        setLocationPromptNeeded(true);
+      },
+      { timeout: 8000, maximumAge: 60_000 }
+    );
+  };
+
+  useEffect(() => {
+    if (!sessionLoaded || locationFromSession || userLocation) return;
+    requestUserLocation();
+  }, [sessionLoaded, locationFromSession, userLocation]);
+
+  async function handleSpecializationChange(name: string) {
+    setSessionSpecialization(name);
+    if (!userLocation || !name.trim()) {
+      if (!name.trim()) setSessionDoctors([]);
+      return;
+    }
+
+    try {
+      const doctors = await fetchNearbyDoctors({
+        latitude: userLocation[0],
+        longitude: userLocation[1],
+        radius: 20,
+        specialization: name,
+      });
+      setSessionDoctors(doctors);
+    } catch (e) {
+      console.error('Failed to fetch nearby doctors:', e);
+    }
+  }
+
+  useEffect(() => {
+    if (!shouldFetchInitialDoctors || !userLocation || !sessionSpecialization.trim()) {
+      return;
+    }
+
+    let cancelled = false;
+    setShouldFetchInitialDoctors(false);
+
+    (async () => {
+      try {
+        const doctors = await fetchNearbyDoctors({
+          latitude: userLocation[0],
+          longitude: userLocation[1],
+          radius: 20,
+          specialization: sessionSpecialization,
+        });
+        if (!cancelled) setSessionDoctors(doctors);
+      } catch (e) {
+        console.error('Failed to fetch nearby doctors:', e);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [shouldFetchInitialDoctors, userLocation, sessionSpecialization]);
 
 function openSaveModal() {
   if (!userLocation) return;
@@ -247,29 +378,6 @@ useEffect(() => {
     }
   };
 
-  // ── Fallback geolocation ────────────────────────────────────
-  useEffect(() => {
-    if (!sessionLoaded || userLocation) return;
-
-    if (!('geolocation' in navigator)) {
-      setUserLocation(DEFAULT_LOCATION);
-      setLocLoading(false);
-      return;
-    }
-
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setUserLocation([pos.coords.latitude, pos.coords.longitude]);
-        setLocLoading(false);
-      },
-      () => {
-        setUserLocation(DEFAULT_LOCATION);
-        setLocLoading(false);
-      },
-      { timeout: 8000, maximumAge: 60_000 }
-    );
-  }, [sessionLoaded, userLocation]);
-
   // ── Build Doctor[] from session data ───────────────────────
   const doctors: Doctor[] = useMemo(() => {
     const [userLat, userLng] = userLocation ?? DEFAULT_LOCATION;
@@ -305,12 +413,13 @@ useEffect(() => {
             doc.specialty ||
             sessionSpecialization ||
             'Specialist',
-          rating: 4.8,
+          rating: 0,
           reviews: 0,
           photo: doc.profileImage || DEFAULT_PHOTO,
-          insurance: doc.appointmentWebsite
-            ? 'Online Appointment Available'
-            : 'Call for Appointment',
+          appointmentPhones: Array.isArray(doc.appointmentPhone)
+            ? doc.appointmentPhone.map((p) => p.trim()).filter(Boolean)
+            : [],
+          appointmentWebsite: doc.appointmentWebsite?.trim() || '',
           availability: doc.consultation || 'Check schedule',
           lat,
           lng,
@@ -361,15 +470,90 @@ useEffect(() => {
       <p className="text-text-muted text-sm mb-4">
         {locLoading
           ? 'Detecting your location…'
+          : locationPromptNeeded
+          ? 'Allow location access to find doctors near you.'
           : 'Discover top-rated healthcare professionals near you.'}
       </p>
 
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex flex-wrap gap-2">
-          {sessionSpecialization && (
-            <div className="flex h-8 items-center gap-1 rounded-full border border-primary bg-primary/10 text-primary px-3 text-xs font-bold uppercase tracking-wider">
-              <span>{sessionSpecialization}</span>
-              <X className="w-3.5 h-3.5 cursor-pointer" />
+      {locationPromptNeeded && (
+        <button
+          type="button"
+          onClick={requestUserLocation}
+          className="mb-4 inline-flex h-8 items-center rounded-full border border-primary bg-primary/10 px-3 text-xs font-bold uppercase tracking-wider text-primary hover:bg-primary/20 transition-colors"
+        >
+          Use my location
+        </button>
+      )}
+
+      <div className="flex items-start justify-between gap-3 mb-4">
+        <div ref={specMenuRef} className="flex flex-col gap-2">
+          <button
+            type="button"
+            onClick={() => setSpecMenuOpen((open) => !open)}
+            disabled={loadingSpecializations}
+            className={`inline-flex h-8 max-w-full items-center gap-2 rounded-full border px-3 text-xs font-bold uppercase tracking-wider transition-colors disabled:opacity-60 ${
+              sessionSpecialization
+                ? 'border-primary bg-primary/5 text-primary'
+                : 'border-border bg-card text-text-sub hover:border-primary/40'
+            }`}
+          >
+            <span className="truncate">
+              {loadingSpecializations
+                ? 'Loading specialties…'
+                : sessionSpecialization || 'Select speciality'}
+            </span>
+            <ChevronDown
+              className={`w-3.5 h-3.5 shrink-0 transition-transform ${
+                specMenuOpen ? 'rotate-180' : ''
+              }`}
+            />
+          </button>
+
+          {specMenuOpen && !loadingSpecializations && (
+            <div className="max-h-52 w-full max-w-sm overflow-y-auto rounded-xl border border-border bg-card p-1 shadow-sm">
+              {sessionSpecialization &&
+                !specializations.some((s) => s.name === sessionSpecialization) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleSpecializationChange(sessionSpecialization);
+                      setSpecMenuOpen(false);
+                    }}
+                    className="flex w-full items-center gap-2 rounded-lg border-2 border-primary bg-primary/5 px-3 py-2 text-left text-xs font-bold uppercase tracking-wider text-primary"
+                  >
+                    <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 border-primary bg-primary">
+                      <Check className="h-2.5 w-2.5 text-white" />
+                    </span>
+                    <span className="truncate">{sessionSpecialization}</span>
+                  </button>
+                )}
+              {specializations.map((spec) => {
+                const isActive = sessionSpecialization === spec.name;
+                return (
+                  <button
+                    key={spec._id}
+                    type="button"
+                    onClick={() => {
+                      handleSpecializationChange(spec.name);
+                      setSpecMenuOpen(false);
+                    }}
+                    className={`flex w-full items-center gap-2 rounded-lg border-2 px-3 py-2 text-left text-xs font-bold uppercase tracking-wider transition-all ${
+                      isActive
+                        ? 'border-primary bg-primary/5 text-primary shadow-inner'
+                        : 'border-transparent bg-surface text-text-base hover:border-border hover:bg-section-teal'
+                    }`}
+                  >
+                    <span
+                      className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 ${
+                        isActive ? 'border-primary bg-primary' : 'border-border bg-card'
+                      }`}
+                    >
+                      {isActive && <Check className="h-2.5 w-2.5 text-white" />}
+                    </span>
+                    <span className="truncate">{spec.name}</span>
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>
@@ -393,8 +577,7 @@ useEffect(() => {
         </span>
 
         <button className="flex items-center gap-1.5 text-text-sub hover:text-primary transition-colors">
-          <ArrowUpDown className="w-3.5 h-3.5 text-primary" />
-          <span>Sort by: Recommended</span>
+          <span>Specialist Near Your Area</span>
         </button>
       </div>
     </div>
@@ -498,21 +681,29 @@ function DoctorCard({
   onGetDirections,
 }: CardProps) {
   const router = useRouter();
+  const [phonePickerOpen, setPhonePickerOpen] = useState(false);
+  const primaryPhone = doc.appointmentPhones[0];
+
+  useEffect(() => {
+    if (!isSelected) setPhonePickerOpen(false);
+  }, [isSelected]);
+
   return (
     <div
       onClick={onSelect}
-      className={`group flex gap-4 rounded-xl border p-4 transition-all cursor-pointer relative overflow-hidden ${
+      className={`group flex flex-col rounded-xl border p-4 transition-all cursor-pointer relative ${
         isSelected
           ? 'border-primary bg-primary/5 shadow-md scale-[1.01]'
           : 'border-border bg-surface hover:border-primary/50 hover:shadow-sm'
       }`}
     >
       <div
-        className={`absolute top-0 left-0 w-1 h-full bg-primary transition-opacity rounded-l-xl ${
+        className={`absolute top-0 left-0 w-1 h-full bg-primary transition-opacity rounded-l-xl pointer-events-none ${
           isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-50'
         }`}
       />
 
+      <div className="flex gap-4 min-w-0">
       <div
         className="rounded-lg w-20 h-20 shrink-0 bg-cover bg-center border border-border"
         style={{ backgroundImage: `url('${doc.photo}')` }}
@@ -562,10 +753,56 @@ function DoctorCard({
             </span>
           )}
 
-          <span className="inline-flex items-center rounded-lg bg-section-teal px-2.5 py-1 text-xs font-bold text-text-sub border border-border">
-            {doc.insurance}
-          </span>
-          
+          {primaryPhone ? (
+            doc.appointmentPhones.length === 1 ? (
+              <a
+                href={phoneTelHref(primaryPhone)}
+                onClick={(e) => e.stopPropagation()}
+                className="inline-flex items-center gap-1 rounded-lg bg-section-teal px-2.5 py-1 text-xs font-bold text-text-sub border border-border hover:border-primary/40 hover:text-primary transition-colors"
+              >
+                <Phone className="w-3 h-3 shrink-0" />
+                <span>
+                  Call for appointment: <span className="text-text-base">{primaryPhone}</span>
+                </span>
+              </a>
+            ) : (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setPhonePickerOpen((open) => !open);
+                }}
+                className="inline-flex items-center gap-1 rounded-lg bg-section-teal px-2.5 py-1 text-xs font-bold text-text-sub border border-border hover:border-primary/40 hover:text-primary transition-colors text-left"
+              >
+                <Phone className="w-3 h-3 shrink-0" />
+                <span>
+                  Call for appointment:{' '}
+                  <span className="text-text-base">{primaryPhone}</span>
+                  {doc.appointmentPhones.length > 1 && (
+                    <span className="text-text-muted font-semibold normal-case">
+                      {' '}
+                      (+{doc.appointmentPhones.length - 1})
+                    </span>
+                  )}
+                </span>
+              </button>
+            )
+          ) : doc.appointmentWebsite ? (
+            <a
+              href={doc.appointmentWebsite}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="inline-flex items-center rounded-lg bg-section-teal px-2.5 py-1 text-xs font-bold text-text-sub border border-border hover:border-primary/40 hover:text-primary transition-colors"
+            >
+              Online appointment
+            </a>
+          ) : (
+            <span className="inline-flex items-center rounded-lg bg-section-teal px-2.5 py-1 text-xs font-bold text-text-sub border border-border">
+              Call for appointment
+            </span>
+          )}
+
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -594,6 +831,29 @@ function DoctorCard({
           )}
         </div>
       </div>
+      </div>
+
+      {phonePickerOpen && doc.appointmentPhones.length > 1 && (
+        <div
+          className="mt-3 flex w-full flex-col gap-1.5 border-t border-border pt-3"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <p className="text-[10px] font-bold uppercase tracking-wider text-text-muted">
+            Choose a number to call
+          </p>
+          {doc.appointmentPhones.map((phone) => (
+            <a
+              key={phone}
+              href={phoneTelHref(phone)}
+              onClick={() => setPhonePickerOpen(false)}
+              className="inline-flex items-center gap-2 rounded-lg border border-border bg-section-teal px-3 py-2 text-xs font-semibold text-text-base hover:border-primary/40 hover:text-primary transition-colors"
+            >
+              <Phone className="w-3.5 h-3.5 shrink-0 text-primary" />
+              {phone}
+            </a>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

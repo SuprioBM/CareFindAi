@@ -241,7 +241,7 @@ export default function SymptomsPage() {
 
   // Map backend triage result to props expected by SymptomAnalysisResult component
   const mappedAnalysisResult: AnalysisResponse | null = triageResult ? {
-    specialist: triageResult.specialties?.[0] || 'General Physician',
+    specialist: triageResult.specialties?.[0] || 'General Medicine',
     specialists: triageResult.specialties || [],
     score: triageResult.score || 80,
     urgency: triageResult.urgency?.toLowerCase() || 'low',

@@ -152,7 +152,7 @@ const canonicalSpecializations = [
     icon: "briefcase-medical",
     aliases: [
       "medicine",
-      "general physician",
+      "general medicine",
       "medicine & general physician",
       "natural medicine",
       "tropical medicine",

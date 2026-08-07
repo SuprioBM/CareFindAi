@@ -238,7 +238,7 @@ export const canonicalSpecializations = [
     icon: "briefcase-medical",
     aliases: [
       "medicine",
-      "general physician",
+      "general medicine",
       "general practitioner",
       "physician",
       "medicine & general physician",

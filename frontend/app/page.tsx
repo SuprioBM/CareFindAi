@@ -101,52 +101,52 @@ const demoPresets = [
 
 const mockDoctors = [
   {
-    name: "Dr. Sarah Rahman",
-    specialty: "Cardiologist",
+    name: "Professor Dr. Md. Ayub Ali Chowdhury",
+    specialty: "Nephrology",
     rating: "4.9",
     reviews: 142,
-    experience: "12 Yrs Exp",
-    distance: "1.2 km away",
-    avail: "Available Today",
-    timeline: "Sat-Mon: 5:00 PM - 8:00 PM",
-    phone: "+880 1711-123456",
-    image: "https://lh3.googleusercontent.com/aida-public/AB6AXuA6_upf-qbfL4xV0goyl6chdz_RGI5C5JrGLEMt__fPvK4Kn_xsuiDoM1vRE_JKiFs3XGw8VQY8NhgFUg4eB7PmD0pPv3RbAiZXTKUjfH_VQn4548wdS1gpRSXt1r6nSsWDwS_ZSWNixMdB1taf75sECCM0Z6zEW-Kp3dlCXsHpK7oLGw53sBy4zHmZ2xUnh9SbAr_mpgt_6-RnqRZZ05dTW7SemK7M2oUVv_7c8GOsEmU95721CqhTSzWQvGpnMD2R_HlLw3MCt7E"
+    experience: "25 Yrs Exp",
+    distance: "Dhanmondi, Dhaka",
+    avail: "Available Sat-Thu",
+    timeline: "Saturday to Thursday (2:00 PM - 7:00 PM)",
+    phone: "+88 09610010615",
+    image: "https://ibnsinatrust.com/upload/default.jpg"
   },
   {
-    name: "Dr. Asif Zaman",
-    specialty: "Neurologist",
+    name: "Prof. Dr. M.A Baqui",
+    specialty: "Cardiology",
     rating: "4.8",
     reviews: 98,
-    experience: "9 Yrs Exp",
-    distance: "2.5 km away",
+    experience: "22 Yrs Exp",
+    distance: "Dhanmondi, Dhaka",
     avail: "Available Tomorrow",
-    timeline: "Sun-Tue: 4:30 PM - 7:30 PM",
-    phone: "+880 1711-654321",
-    image: "https://lh3.googleusercontent.com/aida-public/AB6AXuBuKuYomVK3_ZH34X2ELoV37NxjmteCKQGguRWX4naMPZgSR6nEkwjhEzG8unRqyGQeAzCdYoCoDTaQQASNxYmv9gfNfP1lWWBnwKGO-7Xpw5QnvtL3o7s9ZETUCwSqv5l5Jcf7KY6h4u5UZMzsfnIfuahd0ggQ61XNwokC89qmYhAprZIxRBw9jpGs2SZ3LcZXjILP9y98AgrWVFlOoNAM-_7IpM4fQgkobOd8NmDRhTlVpaqGk-R-fJnOBjg5v_bmflTi3GE4vsA"
+    timeline: "Saturday to Thursday (9:30 AM - 2:00 PM)",
+    phone: "+88 09610010615",
+    image: "https://ibnsinatrust.com/upload/Prof.%20Dr.%20M.A%20Baqui.jpg"
   },
   {
-    name: "Dr. Sabrina Karim",
-    specialty: "Dermatologist",
+    name: "Prof. Dr. Khondker Shaheed Hussain",
+    specialty: "Cardiology",
     rating: "4.9",
     reviews: 167,
-    experience: "14 Yrs Exp",
-    distance: "0.8 km away",
+    experience: "18 Yrs Exp",
+    distance: "Dhanmondi, Dhaka",
     avail: "Available Today",
-    timeline: "Mon-Wed: 3:00 PM - 6:00 PM",
-    phone: "+880 1711-987654",
-    image: "https://lh3.googleusercontent.com/aida-public/AB6AXuAGh2dA1h-P0QKgXABmjJuSrPhf24EST6bl0CG36u_p7z0zfhxyHbY-j-TqPVWPeg6O8T7QXiB2NZzAAkfIuPYj41kMW7_isiysmdYC5GkQGvH00w-H7SCTc5HuMMLaAH4AWFfGn7J9rTrdadOFgNnX95rcEBwEGZQe88itLcG7VJCgtADTU8yKVjBk-wm2Ar-xQYSyjDH-gFG2gowGaVkcgqusNJXRA5q0RlgKdD9Zxv298Fn6q-V23SNbNr4xsEIR7QNVCvc9KTo"
+    timeline: "Saturday to Wednesday (10:00 AM - 2:00 PM)",
+    phone: "+88 09610010615",
+    image: "https://ibnsinatrust.com/upload/default.jpg"
   },
   {
-    name: "Dr. Tanvir Hasan",
-    specialty: "Rheumatologist",
+    name: "DR. A.T.M Nurannabi Shah",
+    specialty: "Cardiology",
     rating: "4.7",
     reviews: 84,
-    experience: "8 Yrs Exp",
-    distance: "3.1 km away",
-    avail: "Available Monday",
-    timeline: "Wed-Fri: 5:00 PM - 8:00 PM",
-    phone: "+880 1711-345678",
-    image: "https://lh3.googleusercontent.com/aida-public/AB6AXuAVBtl72kWI5EF3axoOLhM6wEhMpeptUBGm8fsAPSxnS8KmTO6nbHLBw5vAPXvLwHgFGZ13YS-hjN1DD9PFKv-aT3lOrDsR1NVyqX_pDVFzrbYTmuMMnIXOXFPLk-ajjxdh7EKQ2FQ4r3DfSbrJo14BFqDUm69hsVpnItoaZ56effoF7AucXGdSghz9YkZSVfesiN6mSPNjpHG3ABXGGUrkTD026QzzBK-XfXulNLHdJop_IzHsNd1WB8FzARqRhL_-UauDILXf9HY"
+    experience: "12 Yrs Exp",
+    distance: "Dhanmondi, Dhaka",
+    avail: "Available Friday",
+    timeline: "Friday (5:00 PM - 7:00 PM)",
+    phone: "+88 09610010615",
+    image: "https://ibnsinatrust.com/upload/default.jpg"
   }
 ];
 
@@ -795,7 +795,7 @@ export default function Home() {
             </div>
             
             <Link 
-              href="/find_nearby_doctors" 
+              href="/manual-search" 
               className="text-primary hover:text-primary-hover text-sm font-bold uppercase tracking-wider flex items-center gap-1.5 transition-colors"
             >
               <span>Explore Specialist Timelines</span>

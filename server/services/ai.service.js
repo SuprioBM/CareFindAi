@@ -76,7 +76,7 @@ export class AIService {
       joint_swelling: "Do you have visible joint swelling?",
       morning_stiffness: "Do your joints feel stiff in the morning for more than 30 minutes?",
       symmetrical_joint_pain: "Is the joint pain present on both sides of your body?",
-      photosensitivity: "Does sunlight make your rash or joint symptoms worse?"
+      photosensitivity: "Does sunlight make your rash or joint symptoms worse?",
     };
 
     return templates[key] || null;

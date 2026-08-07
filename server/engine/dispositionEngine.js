@@ -321,7 +321,7 @@ The recommendation focuses on the most strongly supported domain instead of weak
   }
 
   describeSpecialistChoice(confirmedDomain, triageLevel) {
-    const specialties = DOMAIN_CONFIG[confirmedDomain]?.specialties || ["General Physician"];
+    const specialties = DOMAIN_CONFIG[confirmedDomain]?.specialties || ["General Medicine"];
     const mainSpecialist = specialties[0];
 
     if (triageLevel === "EMERGENCY") {

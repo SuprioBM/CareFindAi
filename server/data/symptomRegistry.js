@@ -15,7 +15,7 @@ export const SYMPTOM_REGISTRY = {
     ],
     specialties: [
       "Internal Medicine",
-      "General Physician"
+      "General Medicine"
     ]
   },
   cough: {
@@ -34,7 +34,7 @@ export const SYMPTOM_REGISTRY = {
     specialties: [
       "Pulmonology",
       "Internal Medicine",
-      "General Physician"
+      "General Medicine"
     ]
   },
   headache: {
@@ -152,7 +152,7 @@ export const SYMPTOM_REGISTRY = {
     specialties: [
       "Gastroenterology",
       "Internal Medicine",
-      "General Physician"
+      "General Medicine"
     ]
   },
   diarrhea: {
@@ -172,7 +172,7 @@ export const SYMPTOM_REGISTRY = {
     specialties: [
       "Gastroenterology",
       "Internal Medicine",
-      "General Physician"
+      "General Medicine"
     ]
   },
   sore_throat: {
@@ -190,7 +190,7 @@ export const SYMPTOM_REGISTRY = {
     ],
     specialties: [
       "Otolaryngology",
-      "General Physician",
+      "General Physic",
       "Internal Medicine"
     ]
   },
@@ -230,7 +230,7 @@ export const SYMPTOM_REGISTRY = {
       "Orthopedics",
       "Neurology",
       "Physical Medicine and Rehabilitation",
-      "General Physician"
+      "General Medicine"
     ]
   },
   joint_pain: {

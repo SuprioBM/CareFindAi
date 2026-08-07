@@ -58,7 +58,7 @@ function shapeTriageResponse(session, nextQuestion = null, nextQuestionKey = nul
     // Keep backward compatible top-level properties
     triage_level: recommendation ? recommendation.urgencyLevel.toUpperCase() : "LOW",
     confidence: recommendation ? (recommendation.confidenceScore || 0.8) : 0,
-    specialties: recommendation ? (recommendation.specialties || [recommendation.specialist]) : ["General Physician"],
+    specialties: recommendation ? (recommendation.specialties || [recommendation.specialist]) : ["General Medicine"],
     next_step: recommendation ? recommendation.explanation : "",
     reasons: recommendation && recommendation.warningMessage ? [recommendation.warningMessage] : [],
   };
