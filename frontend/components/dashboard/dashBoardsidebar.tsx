@@ -5,10 +5,9 @@ import { usePathname } from 'next/navigation';
 
 const navItems = [
   { href: '/dashboard', icon: 'dashboard', label: 'Dashboard' },
-  { href: '/dashboard/previous_searches', icon: 'history', label: 'Previous Searches' },
   { href: '/dashboard/saved_items', icon: 'favorite', label: 'Saved Items' },
   { href: '/dashboard/prescriptions', icon: 'receipt_long', label: 'Prescription Scans' },
-  { href: '/symptoms', icon: 'monitoring', label: 'Symptom Analyzer' },
+  { href: '/dashboard/symptoms', icon: 'monitoring', label: 'Symptom History' },
   { href: '/dashboard/manual', icon: 'travel_explore', label: 'Manual Search' },
   { href: '/dashboard/doctor_add', icon: 'person_add', label: 'Add Doctor' },
 ];
