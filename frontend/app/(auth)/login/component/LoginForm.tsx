@@ -176,17 +176,6 @@ export default function LoginForm() {
                 </div>
               </div>
 
-              <div className="flex items-center">
-                <input
-                  id="remember-me"
-                  name="remember-me"
-                  type="checkbox"
-                  className="h-4 w-4 rounded border-border bg-surface accent-primary"
-                />
-                <label htmlFor="remember-me" className="ml-2 block text-sm text-text-sub">
-                  Remember me for 30 days
-                </label>
-              </div>
 
               {error && <p className="text-sm text-red-500">{error}</p>}
 
