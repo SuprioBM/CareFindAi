@@ -115,6 +115,26 @@ function MapSync({ center }: { center: [number, number] }) {
   return null;
 }
 
+// ── Keep the map correctly sized when its container is resized ─
+// (e.g. the mobile draggable split, orientation changes, sidebar toggles)
+function MapResizeHandler() {
+  const map = useMap();
+
+  useEffect(() => {
+    const container = map.getContainer();
+    map.invalidateSize();
+
+    const observer = new ResizeObserver(() => {
+      map.invalidateSize();
+    });
+    observer.observe(container);
+
+    return () => observer.disconnect();
+  }, [map]);
+
+  return null;
+}
+
 // ── Floating toolbar controls (responsive) ─────────────────
 function MapControls({
   userLocation,
@@ -255,6 +275,7 @@ export default function DoctorMap({ userLocation, doctors, onDoctorClick, routeT
       <TileLayer key={tileUrl} url={tileUrl} attribution={attribution} maxZoom={19} />
 
       <MapSync center={userLocation} />
+      <MapResizeHandler />
       <MapControls userLocation={userLocation} routeTo={routeTo} onClearRoute={onClearRoute} />
 
       <RouteLayer

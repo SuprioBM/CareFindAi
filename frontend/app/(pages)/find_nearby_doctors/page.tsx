@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useLayoutEffect, useMemo, useRef, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import { apiFetch } from '@/lib/api';
 import { useAuth } from '@/authContext/authContext';
@@ -69,6 +69,23 @@ function haversineMiles(lat1: number, lon1: number, lat2: number, lon2: number):
 const DEFAULT_LOCATION: [number, number] = [23.8103, 90.4125];
 const DEFAULT_PHOTO = '/default-doctor.png';
 
+// ── Mobile resizable split (Doctors panel <-> Map panel) ───────
+// Mirrors the `lg` Tailwind breakpoint used everywhere else on this page —
+// below it the two panels stack and become drag-resizable; at/above it
+// desktop's `lg:` classes take over untouched.
+const MOBILE_MEDIA_QUERY = '(max-width: 1023px)';
+const HANDLE_PX = 24;
+// The doctors panel's header (title/description/filters/count row) is
+// variable height - measured live below - so it's never clipped/hidden by
+// a drag. This is just a small sliver of the list kept visible under it.
+const DOCTORS_LIST_PEEK_PX = 56;
+const MAP_MIN_PX = 160;
+const DEFAULT_DOCTORS_RATIO = 0.6;
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), Math.max(min, max));
+}
+
 //  Dynamic Leaflet map component with SSR disabled and a custom loading state
 const DoctorMap = dynamic(() => import('../../../components/Map/map'), {
   ssr: false,
@@ -105,6 +122,15 @@ export default function DoctorDiscoveryPage() {
   const [specMenuOpen, setSpecMenuOpen] = useState(false);
   const specMenuRef = useRef<HTMLDivElement>(null);
   const { user, loading } = useAuth();
+
+  // ── Mobile resizable split state ─────────────────────────────
+  const splitContainerRef = useRef<HTMLDivElement>(null);
+  const doctorsHeaderRef = useRef<HTMLDivElement>(null);
+  const [isMobileSplit, setIsMobileSplit] = useState(false);
+  const [doctorsHeightPx, setDoctorsHeightPx] = useState<number | null>(null);
+  const [doctorsMinPx, setDoctorsMinPx] = useState(220); // refined from the real header once measured
+  const isDraggingRef = useRef(false);
+  const [isDraggingHandle, setIsDraggingHandle] = useState(false);
 
   const {
   locations,
@@ -185,6 +211,116 @@ const [modalData, setModalData] = useState<{
     document.addEventListener('mousedown', handlePointerDown);
     return () => document.removeEventListener('mousedown', handlePointerDown);
   }, [specMenuOpen]);
+
+  // ── Track mobile vs desktop (mirrors the `lg` breakpoint) ────
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('matchMedia' in window)) return;
+
+    const mql = window.matchMedia(MOBILE_MEDIA_QUERY);
+    const update = () => setIsMobileSplit(mql.matches);
+    update();
+
+    // Belt-and-braces: some embedded/emulated viewports don't reliably fire
+    // the matchMedia "change" event on a programmatic resize, so also
+    // recheck on the plain window resize event.
+    mql.addEventListener('change', update);
+    window.addEventListener('resize', update);
+    return () => {
+      mql.removeEventListener('change', update);
+      window.removeEventListener('resize', update);
+    };
+  }, []);
+
+  // ── Keep the doctors-panel minimum in sync with its REAL header height
+  //    (title/description/location prompt/filters/count row - all variable
+  //    height), so a drag can never clip or hide it. ──────────────────
+  useLayoutEffect(() => {
+    const header = doctorsHeaderRef.current;
+    if (!header) return;
+
+    // Rely solely on the observer's own callback (fires once right after
+    // observe(), post-layout) rather than a synchronous getBoundingClientRect()
+    // here, which can race CSS/hydration and seed a too-small minimum that
+    // never self-corrects since ResizeObserver only re-fires on a real change.
+    //
+    // NOTE: re-measure via getBoundingClientRect() inside the callback rather
+    // than using entry.contentRect - contentRect is the content box (excludes
+    // the header's own p-5 padding), which would under-count its real
+    // on-screen height and let the panel get dragged short enough to clip it.
+    const observer = new ResizeObserver(() => {
+      setDoctorsMinPx(Math.ceil(header.getBoundingClientRect().height) + DOCTORS_LIST_PEEK_PX);
+    });
+    observer.observe(header);
+    return () => observer.disconnect();
+  }, []);
+
+  // ── Measure the split container and (re)clamp the doctors panel
+  //    height whenever we enter mobile or the container/header is resized.
+  //    Runs in useLayoutEffect to avoid a flash of the wrong height. ──
+  useLayoutEffect(() => {
+    if (!isMobileSplit) {
+      setDoctorsHeightPx(null);
+      return;
+    }
+
+    const container = splitContainerRef.current;
+    if (!container) return;
+
+    // Reset so the observer's first callback (below) seeds the ratio-based
+    // default off a properly settled layout, rather than racing a
+    // synchronous getBoundingClientRect() against CSS/hydration timing.
+    setDoctorsHeightPx(null);
+
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (!entry) return;
+      const containerHeight = entry.contentRect.height;
+      const maxHeight = containerHeight - HANDLE_PX - MAP_MIN_PX;
+
+      setDoctorsHeightPx((prev) => {
+        if (prev == null) return clamp(containerHeight * DEFAULT_DOCTORS_RATIO, doctorsMinPx, maxHeight);
+        return clamp(prev, doctorsMinPx, maxHeight);
+      });
+    });
+    observer.observe(container);
+
+    return () => observer.disconnect();
+  }, [isMobileSplit, doctorsMinPx]);
+
+  // ── Drag handle: pointer-based, works for mouse + touch alike ─
+  const handleHandlePointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isMobileSplit) return;
+    e.preventDefault();
+    isDraggingRef.current = true;
+    setIsDraggingHandle(true);
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {
+      // No active pointer to capture (can happen with synthetic events / some
+      // edge cases) - dragging still works via the window-level listeners below.
+    }
+  }, [isMobileSplit]);
+
+  const handleHandlePointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isDraggingRef.current) return;
+    const container = splitContainerRef.current;
+    if (!container) return;
+
+    const rect = container.getBoundingClientRect();
+    const relativeY = e.clientY - rect.top;
+    const maxHeight = rect.height - HANDLE_PX - MAP_MIN_PX;
+    setDoctorsHeightPx(clamp(relativeY, doctorsMinPx, maxHeight));
+  }, [doctorsMinPx]);
+
+  const endHandleDrag = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    isDraggingRef.current = false;
+    setIsDraggingHandle(false);
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch {
+      // Pointer may already be released (e.g. pointercancel) - safe to ignore.
+    }
+  }, []);
 
   const requestUserLocation = () => {
     setLocLoading(true);
@@ -444,8 +580,8 @@ useEffect(() => {
 
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-surface text-text-base">
-<main className="flex flex-col lg:flex-row flex-1 overflow-hidden">
-  
+<main ref={splitContainerRef} className="flex flex-col lg:flex-row flex-1 overflow-hidden">
+
   {/* ── Doctor List Panel ── */}
   <div
     className="
@@ -457,11 +593,12 @@ useEffect(() => {
       border-border
       bg-card
       z-10
-      h-[70vh] lg:h-auto
+      h-[60vh] lg:h-auto
     "
+    style={isMobileSplit && doctorsHeightPx != null ? { height: doctorsHeightPx, flex: '0 0 auto' } : undefined}
   >
     {/* Header */}
-    <div className="p-5 border-b border-border shrink-0">
+    <div ref={doctorsHeaderRef} className="p-5 border-b border-border shrink-0">
 
       <h1 className="text-2xl font-bold text-text-base mb-1">
         Find a Doctor
@@ -611,13 +748,32 @@ useEffect(() => {
     </div>
   </div>
 
+  {/* ── Drag handle: resizes Doctors <-> Map on mobile only ── */}
+  <div
+    role="separator"
+    aria-orientation="horizontal"
+    aria-label="Resize doctors list and map"
+    className={`
+      lg:hidden shrink-0 h-6 flex items-center justify-center
+      bg-card cursor-row-resize select-none touch-none
+      ${isDraggingHandle ? 'bg-section-teal' : ''}
+    `}
+    style={{ touchAction: 'none' }}
+    onPointerDown={handleHandlePointerDown}
+    onPointerMove={handleHandlePointerMove}
+    onPointerUp={endHandleDrag}
+    onPointerCancel={endHandleDrag}
+  >
+    <span className="h-1 w-10 rounded-full bg-border" />
+  </div>
+
   {/* ── Map Panel ── */}
   <div
     className="
       w-full
-      h-[45vh]
       lg:h-auto
       flex-1
+      min-h-0
       relative
       overflow-hidden
     "
