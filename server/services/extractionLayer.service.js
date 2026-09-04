@@ -1,6 +1,6 @@
 import { callGroq, safeJsonParse } from "../modules/ai/ai.groq.js";
 
-const EXTRACTOR_MODEL = process.env.GROQ_MAIN_MODEL || "llama-3.3-70b-versatile";
+const EXTRACTOR_MODEL = process.env.GROQ_MAIN_MODEL || "openai/gpt-oss-20b";
 
 export class ExtractionLayer {
   /**
@@ -33,8 +33,17 @@ ${JSON.stringify(currentState, null, 2)}
    - "sore_throat"
    - "rash"
    - "back_pain"
+   - "neck_pain"
    - "joint_pain"
    If a symptom does not map to any of these, you may use a descriptive lowercase snake_case key, but prefer the canonical ones.
+   CRITICAL: Never substitute a different body part/location for the one the patient actually
+   named just because it "sounds close" to a canonical key - e.g. neck pain is NOT back pain,
+   and shoulder pain is NOT chest pain. If the exact location isn't in the canonical list above,
+   coin a new descriptive key for that specific location instead of reusing an unrelated one.
+   This applies to "joint_pain" too: if the patient names a SPECIFIC joint (e.g. "knee pain",
+   "elbow pain", "wrist pain", "shoulder pain"), use that specific location's own key (e.g.
+   "knee_pain") rather than the generic "joint_pain" - only use "joint_pain" itself when no
+   specific joint is named, or several joints are involved at once.
 2. For each symptom identified:
    - Extract its duration if mentioned (e.g., "2 days", "1 week") and save in 'symptomTimeline'.
    - Extract its severity if mentioned (e.g., "mild", "moderate", "severe", "8 out of 10") and save in 'severity'.

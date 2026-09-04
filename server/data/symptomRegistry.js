@@ -233,6 +233,27 @@ export const SYMPTOM_REGISTRY = {
       "General Medicine"
     ]
   },
+  neck_pain: {
+    symptom: "neck_pain",
+    requiredQuestions: [
+      "duration",
+      "severity",
+      "injury_history"
+    ],
+    redFlags: [
+      "stiff_neck",
+      "radiating_arm_pain_or_numbness",
+      "bowel_bladder_incontinence",
+      "progressive_weakness",
+      "head_injury_history"
+    ],
+    specialties: [
+      "Orthopedic Surgery",
+      "Neurology",
+      "Physical Medicine and Rehabilitation",
+      "General Medicine"
+    ]
+  },
   joint_pain: {
     symptom: "joint_pain",
     requiredQuestions: [
