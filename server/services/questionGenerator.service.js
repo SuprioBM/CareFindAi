@@ -54,7 +54,7 @@ Rules:
           },
         ],
         temperature: 0.3,
-        max_tokens: 150,
+        max_tokens: 300,
         label: "Question Generator Layer",
       });
 

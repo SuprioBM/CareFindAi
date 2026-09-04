@@ -144,7 +144,7 @@ export async function aiHealthController(req, res) {
         },
       ],
       temperature: 0,
-      max_tokens: 20,
+      max_tokens: 200,
       label: "Groq health check",
     });
 

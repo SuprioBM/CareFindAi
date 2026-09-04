@@ -104,7 +104,7 @@ export async function runMainAI({
     const raw = await callGroq({
       model: MAIN_MODEL,
       temperature: 0,
-      max_tokens: 220,
+      max_tokens: 400,
       response_format: { type: "json_object" },
       label: "Groq main AI",
       messages: [

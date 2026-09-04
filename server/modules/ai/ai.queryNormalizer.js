@@ -67,7 +67,7 @@ export async function runQueryNormalizer({ symptoms, inputLanguage }) {
   const raw = await callGroq({
     model: TRANSLATE_MODEL,
     temperature: 0,
-    max_tokens: 120,
+    max_tokens: 300,
     response_format: { type: "json_object" },
     label: "Groq query normalizer",
     messages: [

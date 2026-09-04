@@ -120,7 +120,7 @@ Return ONLY a valid JSON object. No markdown, no conversation, no greetings.
           },
         ],
         temperature: 0.1,
-        max_tokens: 500,
+        max_tokens: 800,
         response_format: { type: "json_object" },
         label: "Disposition Engine",
       });

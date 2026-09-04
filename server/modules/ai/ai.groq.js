@@ -78,16 +78,32 @@ function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+// gpt-oss models (Groq's replacement for the retired llama-3.x line) do
+// internal chain-of-thought reasoning before emitting the final answer, and
+// those reasoning tokens count against max_tokens. Left at its default
+// ("medium"), reasoning alone can burn through a max_tokens budget sized for
+// the old direct-answer llama models before any actual JSON is produced,
+// causing a 400 json_validate_failed ("max completion tokens reached before
+// generating a valid document"). Default reasoning down to "low" for these
+// models - our prompts are short structured-extraction/classification tasks
+// that don't need deep reasoning - while still letting a caller override it.
+function isGptOssModel(model = "") {
+  return /gpt-oss/i.test(model);
+}
+
 export async function callGroq({
   model,
   messages,
   temperature = 0,
   max_tokens = 300,
   response_format,
+  reasoning_effort,
   retries = 2,
   label = "Groq",
 }) {
   const groq = buildGroqClient();
+  const effectiveReasoningEffort =
+    reasoning_effort ?? (isGptOssModel(model) ? "low" : undefined);
   let lastError;
 
   for (let attempt = 0; attempt <= retries; attempt++) {
@@ -98,6 +114,7 @@ export async function callGroq({
         temperature,
         max_tokens,
         response_format,
+        ...(effectiveReasoningEffort ? { reasoning_effort: effectiveReasoningEffort } : {}),
       });
 
       console.log(`${label} raw response:`, JSON.stringify(json, null, 2));
