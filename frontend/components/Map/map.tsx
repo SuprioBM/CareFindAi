@@ -225,10 +225,15 @@ export default function DoctorMap({ userLocation, doctors, onDoctorClick, routeT
 
   const selectedDoc = doctors.find((d) => routeTo && d.lat === routeTo[0] && d.lng === routeTo[1]);
 
-  /* CartoDB tiles — free, performant, dark/light variants */
+  /* CartoDB tiles — free, performant, dark/light variants.
+     CARTO now requires a (free) API key on this endpoint, or tiles render
+     with an "API KEY REQUIRED" watermark. Get one at https://carto.com/basemaps/apikey
+     and set NEXT_PUBLIC_CARTO_API_KEY — the map still works without it, just watermarked. */
+  const cartoApiKey = process.env.NEXT_PUBLIC_CARTO_API_KEY;
+  const cartoKeyParam = cartoApiKey ? `?key=${cartoApiKey}` : '';
   const tileUrl = isDark
-    ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
-    : 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
+    ? `https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png${cartoKeyParam}`
+    : `https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png${cartoKeyParam}`;
 
   const attribution =
     '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> ' +

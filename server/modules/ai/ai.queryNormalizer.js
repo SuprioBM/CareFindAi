@@ -3,7 +3,7 @@ import fetch from "node-fetch";
 import { callGroq, safeJsonParse } from "./ai.groq.js";
 
 const TRANSLATE_MODEL =
-  process.env.GROQ_TRANSLATE_MODEL || "llama-3.1-8b-instant";
+  process.env.GROQ_TRANSLATE_MODEL || "openai/gpt-oss-20b";
 
 async function banglishToBangla(text) {
   const url = `https://inputtools.google.com/request?text=${encodeURIComponent(

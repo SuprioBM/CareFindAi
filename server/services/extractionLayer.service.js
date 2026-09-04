@@ -111,7 +111,10 @@ You must return a valid JSON object ONLY. Do not include markdown code block syn
         redFlags: Array.isArray(extracted.redFlags) ? extracted.redFlags.map(s => String(s).toLowerCase()) : [],
       };
     } catch (error) {
-      console.error("Extraction error, falling back to empty extraction:", error);
+      console.error("Extraction error, flagging as failed extraction:", error);
+      // NOTE: this is NOT the same as "the model ran and found nothing" — it means
+      // the Groq call itself failed (bad model id, auth, network, etc). Callers
+      // MUST check `_extractionFailed` before trusting this as a real (empty) result.
       return {
         demographics: { age: null, gender: null },
         symptoms: [],
@@ -121,6 +124,8 @@ You must return a valid JSON object ONLY. Do not include markdown code block syn
         medications: [],
         medicalHistory: [],
         redFlags: [],
+        _extractionFailed: true,
+        _extractionError: error?.message || "Unknown extraction error",
       };
     }
   }

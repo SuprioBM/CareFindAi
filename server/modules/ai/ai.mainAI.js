@@ -1,7 +1,7 @@
 import { callGroq, safeJsonParse } from "./ai.groq.js";
 import Specialization from "../../models/specialization.model.js";
 
-const MAIN_MODEL = process.env.GROQ_MAIN_MODEL || "llama-3.1-8b-instant";
+const MAIN_MODEL = process.env.GROQ_MAIN_MODEL || "openai/gpt-oss-20b";
 
 function truncateText(text, maxLength = 3500) {
   if (!text) return "";

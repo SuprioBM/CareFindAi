@@ -132,7 +132,7 @@ export async function aiHealthController(req, res) {
   try {
     // Send a simple ping to Groq to verify service is operational
     const content = await callGroq({
-      model: process.env.GROQ_TRANSLATE_MODEL || "llama-3.1-8b-instant",
+      model: process.env.GROQ_TRANSLATE_MODEL || "openai/gpt-oss-20b",
       messages: [
         {
           role: "system",

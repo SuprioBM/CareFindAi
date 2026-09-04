@@ -111,6 +111,13 @@ export const startTriage = async (req, res) => {
 
     // 2. Information Extraction
     const extracted = await extractionLayer.extract(inputMessage, session.clinicalState);
+    if (extracted._extractionFailed) {
+      return res.status(502).json({
+        success: false,
+        message: "We couldn't process your symptom description right now. Please try again in a moment.",
+        error: extracted._extractionError,
+      });
+    }
     session.clinicalState = extractionLayer.merge(session.clinicalState, extracted);
 
     // 3. Emergency Check
@@ -237,6 +244,13 @@ export const handleTriageMessage = async (req, res) => {
 
     // 2. Run Information Extraction on the response to fetch updates
     const extracted = await extractionLayer.extract(message, session.clinicalState);
+    if (extracted._extractionFailed) {
+      return res.status(502).json({
+        success: false,
+        message: "We couldn't process your response right now. Please try again in a moment.",
+        error: extracted._extractionError,
+      });
+    }
 
     // GUARD: If the user explicitly answered negatively to the pending question key (e.g. "No" to confusion),
     // override the LLM output and ensure that specific key is not mistakenly marked as positive.

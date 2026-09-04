@@ -1,6 +1,6 @@
 import { callGroq } from "../modules/ai/ai.groq.js";
 
-const GENERATOR_MODEL = process.env.GROQ_TRANSLATE_MODEL || "llama-3.1-8b-instant";
+const GENERATOR_MODEL = process.env.GROQ_TRANSLATE_MODEL || "openai/gpt-oss-20b";
 
 export class QuestionGenerator {
   /**

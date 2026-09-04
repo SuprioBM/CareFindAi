@@ -4,7 +4,7 @@ import Specialization from "../models/specialization.model.js";
 import Doctor from "../models/doctor.model.js";
 import { findOrCreateSpecialization } from "../utils/specializationFinder.js";
 
-const MODEL = process.env.GROQ_MAIN_MODEL || "llama-3.3-70b-versatile";
+const MODEL = process.env.GROQ_MAIN_MODEL || "openai/gpt-oss-20b";
 
 export class DispositionEngine {
   /**
